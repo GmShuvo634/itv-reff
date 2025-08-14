@@ -67,7 +67,7 @@ export async function createUser(userData: {
     const referralCode = generateReferralCode();
     
     // Check if user was referred by someone
-    let referredBy = null;
+    let referredBy: string | null = null;
     if (userData.referralCode) {
       const referrer = await db.user.findUnique({
         where: { referralCode: userData.referralCode },
@@ -106,7 +106,7 @@ function generateReferralCode(): string {
   return result;
 }
 
-export async function getUserById(id: string): Promise<User | null> {
+export async function getUserById(id: string): Promise<Partial<User> | null> {
   try {
     return await db.user.findUnique({
       where: { id },
@@ -115,10 +115,14 @@ export async function getUserById(id: string): Promise<User | null> {
         email: true,
         name: true,
         phone: true,
+        password: true,
         emailVerified: true,
         phoneVerified: true,
         referralCode: true,
+        referredBy: true,
         status: true,
+        ipAddress: true,
+        deviceId: true,
         walletBalance: true,
         totalEarnings: true,
         createdAt: true,

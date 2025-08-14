@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,7 @@ interface VideosResponse {
 }
 
 export default function VideosPage() {
+  const router = useRouter();
   const [videos, setVideos] = useState<Video[]>([]);
   const [dailyLimit, setDailyLimit] = useState(10);
   const [videosWatched, setVideosWatched] = useState(0);
@@ -59,11 +61,16 @@ export default function VideosPage() {
         setCanWatchMore(data.canWatchMore);
       } else {
         // If not authenticated, redirect to login
-        window.location.href = '/';
+        if (response.status === 401) {
+          router.push('/');
+        }
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
-      window.location.href = '/';
+      // Only redirect on network errors, not on auth errors
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        router.push('/');
+      }
     } finally {
       setLoading(false);
     }
@@ -198,7 +205,7 @@ export default function VideosPage() {
             <p className="text-gray-500 mb-6">
               Come back tomorrow for more videos and rewards.
             </p>
-            <Button onClick={() => window.location.href = '/dashboard'}>
+            <Button onClick={() => router.push('/dashboard')}>
               Back to Dashboard
             </Button>
           </div>
@@ -418,7 +425,7 @@ export default function VideosPage() {
               <p className="text-gray-600 mb-6">
                 There are no videos available at the moment. Please check back later.
               </p>
-              <Button onClick={() => window.location.href = '/dashboard'}>
+              <Button onClick={() => router.push('/dashboard')}>
                 Back to Dashboard
               </Button>
             </CardContent>

@@ -34,7 +34,7 @@ export async function authMiddleware(request: NextRequest) {
 
     // Get user from database
     const user = await getUserById(payload.userId);
-    if (!user || user.status !== 'ACTIVE') {
+    if (!user || !user.id || user.status !== 'ACTIVE') {
       return null;
     }
 

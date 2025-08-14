@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getClientIP, 
-  generateDeviceFingerprint, 
-  checkRateLimit, 
+import { verifyToken } from '@/lib/auth';
+import {
+  getClientIP,
+  generateDeviceFingerprint,
+  checkRateLimit,
   validateSession,
   getSecurityHeaders,
-  logActivity
+  logActivity,
+  type UserActivity
 } from './security';
 
 interface SecurityMiddlewareOptions {
@@ -84,7 +86,7 @@ export async function securityMiddleware(
 
     // Extract user ID from token (this would be implemented with JWT verification)
     const token = request.cookies.get('auth-token')?.value;
-    const userId = extractUserIdFromToken(token);
+    const userId = token ? extractUserIdFromToken(token) : null;
     
     if (!userId) {
       return {
@@ -102,7 +104,7 @@ export async function securityMiddleware(
     // Log user activity
     logActivity({
       userId,
-      action: request.method,
+      action: request.method || 'UNKNOWN',
       timestamp: new Date(),
       ip: clientIP,
       device: deviceFingerprint,
@@ -144,12 +146,9 @@ export async function securityMiddleware(
 
 // Helper function to extract user ID from JWT token
 function extractUserIdFromToken(token: string): string | null {
-  // In production, this would properly verify and decode the JWT
-  // For now, this is a placeholder
   try {
-    // This is a simplified version - use proper JWT verification in production
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.userId;
+    const payload = verifyToken(token);
+    return payload?.userId || null;
   } catch (error) {
     return null;
   }

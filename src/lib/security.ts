@@ -26,7 +26,6 @@ export function getClientIP(request: NextRequest): string {
     request.headers.get('x-forwarded-for') ||
     request.headers.get('x-real-ip') ||
     request.headers.get('cf-connecting-ip') || // Cloudflare
-    request.ip ||
     'unknown'
   );
 }
@@ -81,7 +80,7 @@ export function checkRateLimit(
 export function validateVideoWatch(
   reportedDuration: number,
   videoDuration: number,
-  userInteractions: any[]
+  userInteractions: Array<{ timestamp: number; [key: string]: any }>
 ): { valid: boolean; confidence: number; reasons: string[] } {
   const reasons: string[] = [];
   let confidence = 1.0;
@@ -107,7 +106,7 @@ export function validateVideoWatch(
   
   // Check for consistent interaction timing (possible bot)
   if (userInteractions.length > 1) {
-    const intervals = [];
+    const intervals: number[] = [];
     for (let i = 1; i < userInteractions.length; i++) {
       intervals.push(userInteractions[i].timestamp - userInteractions[i - 1].timestamp);
     }

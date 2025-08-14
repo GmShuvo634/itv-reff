@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -15,7 +16,8 @@ import {
   Gift, 
   ArrowUpRight,
   Calendar,
-  Target
+  Target,
+  LogOut
 } from 'lucide-react';
 
 interface DashboardData {
@@ -46,6 +48,7 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,11 +64,16 @@ export default function Dashboard() {
         setDashboardData(data);
       } else {
         // If not authenticated, redirect to login
-        window.location.href = '/';
+        if (response.status === 401) {
+          router.push('/');
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      window.location.href = '/';
+      // Only redirect on network errors, not on auth errors
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        router.push('/');
+      }
     } finally {
       setLoading(false);
     }
@@ -74,7 +82,7 @@ export default function Dashboard() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/';
+      router.push('/');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -96,7 +104,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Failed to load dashboard</p>
-          <Button onClick={() => window.location.href = '/'}>Go to Login</Button>
+          <Button onClick={() => router.push('/')}>Go to Login</Button>
         </div>
       </div>
     );
@@ -124,6 +132,7 @@ export default function Dashboard() {
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {user.name}</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
             </div>
