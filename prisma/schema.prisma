@@ -1,0 +1,205 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  phone           String?  @unique
+  password        String
+  emailVerified   Boolean  @default(false)
+  phoneVerified   Boolean  @default(false)
+  referralCode    String   @unique
+  referredBy      String?
+  referrer        User?    @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals       User[]   @relation("UserReferrals")
+  status          UserStatus @default(ACTIVE)
+  ipAddress       String?
+  deviceId        String?
+  walletBalance   Float    @default(0)
+  totalEarnings   Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  userPlan        UserPlan?
+  videoTasks      UserVideoTask[]
+  transactions    WalletTransaction[]
+  withdrawalRequests WithdrawalRequest[]
+  
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  price           Float
+  durationDays    Int
+  dailyVideoLimit Int
+  rewardPerVideo  Float
+  referralBonus   Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  userPlans       UserPlan[]
+  
+  @@map("plans")
+}
+
+model UserPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        Plan     @relation(fields: [planId], references: [id])
+  amountPaid  Float
+  startDate   DateTime
+  endDate     DateTime
+  status      PlanStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId])
+  @@map("user_plans")
+}
+
+enum PlanStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model Video {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  url           String
+  thumbnailUrl  String?
+  duration      Int
+  rewardAmount  Float
+  isActive      Boolean  @default(true)
+  availableFrom DateTime?
+  availableTo   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  videoTasks    UserVideoTask[]
+  
+  @@map("videos")
+}
+
+model UserVideoTask {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId       String
+  video         Video    @relation(fields: [videoId], references: [id])
+  watchedAt     DateTime
+  watchDuration Int      // in seconds
+  rewardEarned  Float
+  ipAddress     String?
+  deviceId      String?
+  isVerified    Boolean  @default(false) // anti-cheat verification
+  createdAt     DateTime @default(now())
+  
+  @@unique([userId, videoId])
+  @@map("user_video_tasks")
+}
+
+model WalletTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          TransactionType
+  amount        Float
+  balanceAfter  Float
+  description   String
+  referenceId   String   @unique
+  status        TransactionStatus @default(COMPLETED)
+  metadata      String?  // JSON string for additional data
+  createdAt     DateTime @default(now())
+  
+  @@map("wallet_transactions")
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model WithdrawalRequest {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount         Float
+  paymentMethod  String
+  paymentDetails String   // JSON string for payment details
+  status         WithdrawalStatus @default(PENDING)
+  adminNotes     String?
+  processedAt    DateTime?
+  transactionId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@map("withdrawal_requests")
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      AdminRole @default(ADMIN)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("admin_users")
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON string for complex values
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("settings")
+}
