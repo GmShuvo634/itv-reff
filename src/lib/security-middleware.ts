@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import {
   getClientIP,
   generateDeviceFingerprint,
@@ -9,6 +8,7 @@ import {
   logActivity,
   type UserActivity
 } from './security';
+import { verifyToken } from './token-manager';
 
 interface SecurityMiddlewareOptions {
   requireAuth?: boolean;

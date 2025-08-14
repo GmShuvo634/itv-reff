@@ -1,43 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { authenticateUser, generateToken } from '@/lib/auth';
+import { authenticateUser, checkAccountLockout, recordFailedLogin, resetFailedLogins } from '@/lib/auth';
+import { SecureTokenManager } from '@/lib/token-manager';
+import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
+import { validateCSRF } from '@/lib/csrf-protection';
 import { db } from '@/lib/db';
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Invalid email address').max(255),
+  password: z.string().min(1, 'Password is required').max(128),
   rememberMe: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
+  let response = NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+
   try {
+    // Apply rate limiting
+    const rateLimit = rateLimiter.checkRateLimit(request, RATE_LIMITS.LOGIN);
+    if (!rateLimit.allowed) {
+      response = NextResponse.json(
+        {
+          success: false,
+          error: rateLimit.blocked
+            ? 'Too many failed attempts. Account temporarily blocked.'
+            : 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+        },
+        { status: 429 }
+      );
+      return addAPISecurityHeaders(response);
+    }
+
     const body = await request.json();
-    
-    // Validate input
     const validatedData = loginSchema.parse(body);
-    
+
+    // Check account lockout
+    const lockoutStatus = await checkAccountLockout(validatedData.email);
+    if (lockoutStatus.locked) {
+      response = NextResponse.json(
+        {
+          success: false,
+          error: 'Account is temporarily locked due to too many failed attempts',
+          lockoutUntil: lockoutStatus.lockoutUntil
+        },
+        { status: 423 }
+      );
+      return addAPISecurityHeaders(response);
+    }
+
     // Get client IP
-    const ipAddress = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
+    const ipAddress = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
                      'unknown';
 
     // Authenticate user
     const user = await authenticateUser(validatedData.email, validatedData.password);
-    
+
     if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
+      // Record failed login attempt
+      await recordFailedLogin(validatedData.email);
+
+      response = NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid email or password',
+          remainingAttempts: Math.max(0, 5 - (lockoutStatus.attempts + 1))
+        },
         { status: 401 }
       );
+      return addAPISecurityHeaders(response);
     }
 
     // Check if user is active
     if (user.status !== 'ACTIVE') {
-      return NextResponse.json(
-        { error: 'Account is suspended or banned' },
-        { status: 403 }
+      response = NextResponse.json(
+        { success: false, error: 'Account is not active' },
+        { status: 401 }
       );
+      return addAPISecurityHeaders(response);
     }
+
+    // Reset failed login attempts on successful login
+    await resetFailedLogins(user.id);
 
     // Update last login IP
     await db.user.update({
@@ -45,14 +91,15 @@ export async function POST(request: NextRequest) {
       data: { ipAddress },
     });
 
-    // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-    });
+    // Generate secure token pair
+    const tokens = SecureTokenManager.generateTokenPair(user.id, user.email);
 
-    // Set HTTP-only cookie with token
-    const response = NextResponse.json({
+    // Record successful login
+    rateLimiter.recordSuccess(request);
+
+    // Create response with user data
+    response = NextResponse.json({
+      success: true,
       message: 'Login successful',
       user: {
         id: user.id,
@@ -64,17 +111,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Set cookie with appropriate expiration
+    // Set secure cookies
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict' as const,
-      maxAge: validatedData.rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60, // 7 days or 1 day
+      path: '/',
     };
 
-    response.cookies.set('auth-token', token, cookieOptions);
+    // Set access token (short-lived)
+    response.cookies.set('auth-token', tokens.accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60, // 15 minutes
+    });
 
-    return response;
+    // Set refresh token (longer-lived)
+    response.cookies.set('refresh-token', tokens.refreshToken, {
+      ...cookieOptions,
+      maxAge: validatedData.rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60, // 7 days or 1 day
+    });
+
+    return addAPISecurityHeaders(response);
 
   } catch (error) {
     console.error('Login error:', error);

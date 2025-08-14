@@ -25,6 +25,13 @@ model User {
   deviceId        String?
   walletBalance   Float    @default(0)
   totalEarnings   Float    @default(0)
+
+  // Security fields
+  failedLoginAttempts Int?     @default(0)
+  lastFailedLogin     DateTime?
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

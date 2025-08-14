@@ -1,25 +1,55 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { SecureTokenManager } from '@/lib/token-manager';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  let response = NextResponse.json({ success: true, message: 'Logged out successfully' });
+
   try {
-    const response = NextResponse.json({
-      message: 'Logout successful',
-    });
+    // Get tokens from cookies
+    const accessToken = request.cookies.get('auth-token')?.value;
+    const refreshToken = request.cookies.get('refresh-token')?.value;
 
-    // Clear the auth token cookie
+    // Revoke tokens if they exist
+    if (accessToken) {
+      SecureTokenManager.revokeToken(accessToken);
+    }
+
+    if (refreshToken) {
+      SecureTokenManager.revokeToken(refreshToken);
+    }
+
+    // Clear cookies
+    response.cookies.delete('auth-token');
+    response.cookies.delete('refresh-token');
+
+    // Set additional cookie clearing options
     response.cookies.set('auth-token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 0, // Immediately expire the cookie
+      path: '/',
+      maxAge: 0
     });
 
-    return response;
+    response.cookies.set('refresh-token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 0
+    });
+
+    return addAPISecurityHeaders(response);
+
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
+
+    response = NextResponse.json(
+      { success: false, error: 'Logout failed' },
       { status: 500 }
     );
+
+    return addAPISecurityHeaders(response);
   }
 }

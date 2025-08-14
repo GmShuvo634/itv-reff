@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/middleware';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  let response = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
-      return NextResponse.json(
+      response = NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
+      return addAPISecurityHeaders(response);
     }
 
     // Get user's current plan
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
     const totalReferrals = referralStats._count.id;
     const referralEarnings = totalReferrals * 5.00; // $5 per referral
 
-    return NextResponse.json({
+    response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -86,11 +90,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    return addAPISecurityHeaders(response);
+
   } catch (error) {
     console.error('Dashboard API error:', error);
-    return NextResponse.json(
+    response = NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
+    return addAPISecurityHeaders(response);
   }
 }

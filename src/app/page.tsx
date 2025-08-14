@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,26 @@ export default function Home() {
     password: '',
     rememberMe: false,
   });
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.user) {
+            router.push('/dashboard');
+          }
+        }
+      } catch (error) {
+        // User is not authenticated, stay on login page
+        console.log('User not authenticated');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
   const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {

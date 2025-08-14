@@ -1,11 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken } from '@/lib/auth';
-import { getUserById } from '@/lib/auth';
+import { SecureTokenManager } from '@/lib/token-manager';
+import { addSecurityHeaders } from '@/lib/security-headers';
+import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export async function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value;
   const { pathname } = request.nextUrl;
+
+  // Apply rate limiting to all requests
+  const rateLimit = rateLimiter.checkRateLimit(request, RATE_LIMITS.API_GENERAL);
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json(
+      {
+        error: 'Too many requests',
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      },
+      { status: 429 }
+    );
+    return addSecurityHeaders(response);
+  }
 
   // Define public routes that don't require authentication
   const publicRoutes = ['/', '/register', '/forgot-password'];
@@ -19,38 +32,78 @@ export async function middleware(request: NextRequest) {
   // Check if the current path is an auth route
   const isAuthRoute = authRoutes.includes(pathname);
 
-  // If user has a token, verify it
-  if (token) {
-    try {
-      const payload = verifyToken(token);
-      if (payload) {
-        const user = await getUserById(payload.userId);
+  // Get tokens from cookies
+  const accessToken = request.cookies.get('auth-token')?.value;
+  const refreshToken = request.cookies.get('refresh-token')?.value;
 
-        // If user is authenticated and tries to access auth routes, redirect to dashboard
-        if (user && user.status === 'ACTIVE' && isAuthRoute) {
-          return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
+  // If user has an access token, verify it
+  if (accessToken) {
+    const payload = SecureTokenManager.verifyAccessToken(accessToken);
 
-        // If user is authenticated but not on public route, allow access
-        if (user && user.status === 'ACTIVE') {
-          return NextResponse.next();
-        }
+    if (payload) {
+      // Token is valid
+      if (isAuthRoute) {
+        // Authenticated user trying to access auth routes, redirect to dashboard
+        const response = NextResponse.redirect(new URL('/dashboard', request.url));
+        return addSecurityHeaders(response);
       }
-    } catch (error) {
-      // Token is invalid, clear it and continue
+
+      // Allow access to protected routes
       const response = NextResponse.next();
-      response.cookies.delete('auth-token');
-      return response;
+      return addSecurityHeaders(response);
+    } else if (refreshToken) {
+      // Access token invalid, try to refresh
+      const refreshPayload = SecureTokenManager.verifyRefreshToken(refreshToken);
+
+      if (refreshPayload) {
+        // Refresh token is valid, generate new tokens
+        const newTokens = SecureTokenManager.generateTokenPair(refreshPayload.userId, refreshPayload.email);
+
+        const response = isAuthRoute
+          ? NextResponse.redirect(new URL('/dashboard', request.url))
+          : NextResponse.next();
+
+        // Set new tokens
+        response.cookies.set('auth-token', newTokens.accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 15 * 60, // 15 minutes
+        });
+
+        response.cookies.set('refresh-token', newTokens.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60, // 7 days
+        });
+
+        return addSecurityHeaders(response);
+      }
     }
+
+    // Both tokens are invalid, clear them
+    const response = isPublicRoute
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL('/', request.url));
+
+    response.cookies.delete('auth-token');
+    response.cookies.delete('refresh-token');
+    return addSecurityHeaders(response);
   }
 
-  // If no token and trying to access protected route, redirect to login
+  // No access token
   if (!isPublicRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
+    // Trying to access protected route without token, redirect to login
+    const response = NextResponse.redirect(new URL('/', request.url));
+    return addSecurityHeaders(response);
   }
 
   // Allow access to public routes
-  return NextResponse.next();
+  const response = NextResponse.next();
+  return addSecurityHeaders(response);
 }
 
 export const config = {

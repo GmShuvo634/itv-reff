@@ -1,33 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { getUserById } from '@/lib/auth';
-import { securityMiddleware } from '@/lib/security-middleware';
+import { SecureTokenManager } from '@/lib/token-manager';
 
 export async function authMiddleware(request: NextRequest) {
   try {
-    // Apply security checks
-    const securityResult = await securityMiddleware(request, {
-      requireAuth: true,
-      rateLimit: {
-        maxRequests: 100,
-        windowMs: 60 * 60 * 1000 // 1 hour
-      },
-      checkSuspiciousActivity: true
-    });
-
-    if (!securityResult.allowed) {
-      return null;
-    }
-
     // Get token from cookie
-    const token = request.cookies.get('auth-token')?.value;
+    const accessToken = request.cookies.get('auth-token')?.value;
+    const refreshToken = request.cookies.get('refresh-token')?.value;
 
-    if (!token) {
+    if (!accessToken) {
       return null;
     }
 
-    // Verify token
-    const payload = verifyToken(token);
+    // Verify access token
+    let payload = SecureTokenManager.verifyAccessToken(accessToken);
+
+    if (!payload && refreshToken) {
+      // Access token expired, try refresh token
+      const refreshPayload = SecureTokenManager.verifyRefreshToken(refreshToken);
+      if (refreshPayload) {
+        // Generate new tokens (this would normally be done in the response)
+        payload = refreshPayload;
+      }
+    }
+
     if (!payload) {
       return null;
     }
