@@ -180,7 +180,7 @@ export async function createUser(userData: {
       data: {
         email: userData.email,
         name: userData.name,
-        phone: userData.phone,
+        phone: userData.phone || null, // Set to null if empty to avoid unique constraint issues
         password: hashedPassword,
         referralCode,
         referredBy,
@@ -192,7 +192,8 @@ export async function createUser(userData: {
     return user;
   } catch (error) {
     console.error('User creation error:', error);
-    return null;
+    // Re-throw the error so it can be properly handled by the calling function
+    throw error;
   }
 }
 

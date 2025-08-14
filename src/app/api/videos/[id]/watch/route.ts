@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/middleware';
 import { db } from '@/lib/db';
 import { validateVideoWatchRequest } from '@/lib/security-middleware';
+import { ReferralService } from '@/lib/referral-service';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -158,35 +159,36 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }
     });
 
-    // Check for referral bonus if this is user's first video
+    // Process referral rewards
     const totalVideosWatched = await db.userVideoTask.count({
       where: { userId: user.id }
     });
 
-    if (totalVideosWatched === 1 && user.referredBy) {
-      // Award referral bonus to referrer
-      const referralBonus = 5.00; // $5 referral bonus
-      
-      await db.user.update({
-        where: { id: user.referredBy },
-        data: { 
-          walletBalance: { increment: referralBonus },
-          totalEarnings: { increment: referralBonus }
-        }
-      });
+    // Check for first video referral reward
+    if (totalVideosWatched === 1) {
+      const firstVideoResult = await ReferralService.processReferralQualification(
+        user.id,
+        'first_video'
+      );
 
-      // Create referral bonus transaction
-      await db.walletTransaction.create({
-        data: {
-          userId: user.referredBy,
-          type: 'CREDIT',
-          amount: referralBonus,
-          balanceAfter: await db.user.findUnique({ where: { id: user.referredBy } }).then(u => u!.walletBalance + referralBonus),
-          description: `Referral bonus: ${user.name || user.email} started watching videos`,
-          referenceId: `REFERRAL_${user.id}_${videoTask.id}`,
-          status: 'COMPLETED'
-        }
-      });
+      if (firstVideoResult.success && firstVideoResult.rewardAmount) {
+        console.log(`First video referral reward: $${firstVideoResult.rewardAmount} awarded`);
+      }
+    }
+
+    // Check for weekly activity milestone (7 videos)
+    if (totalVideosWatched === 7) {
+      await ReferralService.processReferralQualification(user.id, 'weekly_activity');
+    }
+
+    // Check for high earner milestone ($50 total earnings)
+    const updatedUser = await db.user.findUnique({
+      where: { id: user.id },
+      select: { totalEarnings: true }
+    });
+
+    if (updatedUser && updatedUser.totalEarnings >= 50 && (updatedUser.totalEarnings - rewardEarned) < 50) {
+      await ReferralService.processReferralQualification(user.id, 'high_earner');
     }
 
     return NextResponse.json({

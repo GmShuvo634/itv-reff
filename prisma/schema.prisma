@@ -40,7 +40,8 @@ model User {
   videoTasks      UserVideoTask[]
   transactions    WalletTransaction[]
   withdrawalRequests WithdrawalRequest[]
-  
+  referralActivities ReferralActivity[]
+
   @@map("users")
 }
 
@@ -179,6 +180,50 @@ enum WithdrawalStatus {
   APPROVED
   REJECTED
   PROCESSED
+}
+
+model ReferralActivity {
+  id              String   @id @default(cuid())
+  referrerId      String
+  referrer        User     @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUserId  String?  // Null if user hasn't registered yet
+  referralCode    String
+  ipAddress       String?
+  userAgent       String?
+  source          String?  // 'link', 'code', 'social', etc.
+  status          ReferralStatus @default(PENDING)
+  rewardAmount    Float?
+  rewardPaidAt    DateTime?
+  metadata        String?  // JSON for additional tracking data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("referral_activities")
+}
+
+enum ReferralStatus {
+  PENDING     // User clicked link but hasn't registered
+  REGISTERED  // User registered but hasn't completed qualifying action
+  QUALIFIED   // User completed qualifying action (e.g., first video watch)
+  REWARDED    // Referrer has been rewarded
+  EXPIRED     // Referral link expired
+}
+
+model ReferralReward {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  triggerEvent    String   // 'registration', 'first_video', 'first_plan', etc.
+  rewardAmount    Float
+  isActive        Boolean  @default(true)
+  validFrom       DateTime @default(now())
+  validUntil      DateTime?
+  maxRewards      Int?     // Maximum number of times this reward can be claimed
+  currentRewards  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("referral_rewards")
 }
 
 model AdminUser {

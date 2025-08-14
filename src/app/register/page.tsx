@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,15 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, ArrowRight, Gift } fro
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [referralInfo, setReferralInfo] = useState<{
+    code: string;
+    isValid: boolean;
+    referrerName?: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,7 +28,7 @@ export default function RegisterPage() {
     referralCode: '',
   });
 
-  // Check if user is already authenticated
+  // Check if user is already authenticated and handle referral code
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -39,16 +45,58 @@ export default function RegisterPage() {
       }
     };
 
+    // Handle referral code from URL
+    const handleReferralCode = async () => {
+      const refCode = searchParams.get('ref');
+      if (refCode) {
+        setFormData(prev => ({ ...prev, referralCode: refCode }));
+
+        // Track referral visit
+        try {
+          const response = await fetch('/api/referral/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              referralCode: refCode,
+              source: 'link'
+            })
+          });
+
+          if (response.ok) {
+            setReferralInfo({
+              code: refCode,
+              isValid: true,
+              referrerName: 'Friend' // You could fetch actual referrer name
+            });
+          } else {
+            setReferralInfo({
+              code: refCode,
+              isValid: false
+            });
+          }
+        } catch (error) {
+          console.error('Error tracking referral:', error);
+          setReferralInfo({
+            code: refCode,
+            isValid: false
+          });
+        }
+      }
+    };
+
     checkAuth();
-  }, [router]);
+    handleReferralCode();
+  }, [router, searchParams]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setSuccess('');
+    setFieldErrors({});
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -81,7 +129,13 @@ export default function RegisterPage() {
           router.push('/');
         }, 2000);
       } else {
-        setError(data.error || 'Registration failed');
+        // Handle field-specific errors
+        if (data.field) {
+          setFieldErrors({ [data.field]: data.error });
+          setError(''); // Clear general error if we have field-specific error
+        } else {
+          setError(data.error || 'Registration failed');
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -133,7 +187,33 @@ export default function RegisterPage() {
                 {success}
               </div>
             )}
-            
+
+            {/* Referral Info Display */}
+            {referralInfo && (
+              <div className={`border rounded-lg p-4 ${
+                referralInfo.isValid
+                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-200'
+                  : 'bg-yellow-500/20 border-yellow-500/50 text-yellow-200'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Gift className="w-4 h-4" />
+                  <span className="font-medium">
+                    {referralInfo.isValid ? 'Referral Applied!' : 'Invalid Referral Code'}
+                  </span>
+                </div>
+                {referralInfo.isValid ? (
+                  <p className="text-sm">
+                    You were referred by {referralInfo.referrerName || 'a friend'}.
+                    You'll both earn rewards when you complete your first video!
+                  </p>
+                ) : (
+                  <p className="text-sm">
+                    The referral code "{referralInfo.code}" is not valid or has expired.
+                  </p>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-gray-300">Full Name</Label>
@@ -161,10 +241,15 @@ export default function RegisterPage() {
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10"
+                    className={`bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10 ${
+                      fieldErrors.email ? 'border-red-500' : ''
+                    }`}
                     required
                   />
                 </div>
+                {fieldErrors.email && (
+                  <p className="text-red-400 text-sm mt-1">{fieldErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -177,9 +262,14 @@ export default function RegisterPage() {
                     placeholder="Enter your phone number"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10"
+                    className={`bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10 ${
+                      fieldErrors.phone ? 'border-red-500' : ''
+                    }`}
                   />
                 </div>
+                {fieldErrors.phone && (
+                  <p className="text-red-400 text-sm mt-1">{fieldErrors.phone}</p>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/middleware';
+import { ReferralService } from '@/lib/referral-service';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  let response = NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
   try {
+    // Authenticate user
     const user = await authMiddleware(request);
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    if (!user || !user.id) {
+      return addAPISecurityHeaders(response);
     }
 
-    // Get referral statistics
+    // Get enhanced referral statistics
+    const enhancedStats = await ReferralService.getReferralStats(user.id);
+
+    // Get legacy referral data for backward compatibility
     const referrals = await db.user.findMany({
       where: { referredBy: user.id },
       select: {
@@ -26,18 +30,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Calculate legacy stats
     const totalReferrals = referrals.length;
     const activeReferrals = referrals.filter(r => r.totalEarnings > 0).length;
-    const totalReferralEarnings = totalReferrals * 5.00; // $5 per referral
-
-    // Calculate monthly referral stats
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
-
-    const monthlyReferrals = referrals.filter(r => 
-      new Date(r.createdAt) >= currentMonth
-    ).length;
 
     // Get top performers
     const topReferrals = referrals
@@ -50,11 +45,42 @@ export async function GET(request: NextRequest) {
         joinedAt: r.createdAt.toISOString(),
       }));
 
-    return NextResponse.json({
+    // Generate referral links
+    const socialLinks = ReferralService.generateSocialLinks(user.referralCode || '');
+
+    // Combine enhanced stats with legacy stats for complete data
+    const combinedStats = enhancedStats || {
+      totalReferrals: 0,
+      registeredReferrals: 0,
+      qualifiedReferrals: 0,
+      rewardedReferrals: 0,
+      totalEarnings: 0,
+      monthlyReferrals: 0,
+      activities: []
+    };
+
+    response = NextResponse.json({
+      success: true,
+      referralCode: user.referralCode,
+      referralLink: ReferralService.generateReferralLink(user.referralCode || ''),
+      socialLinks,
+
+      // Main stats object that the component expects
+      stats: {
+        totalReferrals: Math.max(combinedStats.totalReferrals, totalReferrals),
+        registeredReferrals: combinedStats.registeredReferrals,
+        qualifiedReferrals: combinedStats.qualifiedReferrals,
+        rewardedReferrals: combinedStats.rewardedReferrals,
+        totalEarnings: combinedStats.totalEarnings,
+        monthlyReferrals: combinedStats.monthlyReferrals,
+        activities: combinedStats.activities || []
+      },
+
+      // Legacy stats for backward compatibility
       totalReferrals,
       activeReferrals,
-      totalReferralEarnings,
-      monthlyReferrals,
+      totalReferralEarnings: combinedStats.totalEarnings || (totalReferrals * 5.00),
+      monthlyReferrals: combinedStats.monthlyReferrals || 0,
       topReferrals,
       referrals: referrals.map(r => ({
         id: r.id,
@@ -67,11 +93,14 @@ export async function GET(request: NextRequest) {
       })),
     });
 
+    return addAPISecurityHeaders(response);
+
   } catch (error) {
     console.error('Get referral stats error:', error);
-    return NextResponse.json(
+    response = NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
+    return addAPISecurityHeaders(response);
   }
 }
