@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware';
+import { authMiddleware } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
 
     // Check if user already has an active plan
     const existingPlan = await db.userPlan.findFirst({
-      where: { 
-        userId: user.id, 
-        status: 'ACTIVE' 
+      where: {
+        userId: user.id,
+        status: 'ACTIVE'
       }
     });
 
@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
     // Update user's wallet balance
     await db.user.update({
       where: { id: user.id },
-      data: { 
-        walletBalance: user.walletBalance - plan.price 
+      data: {
+        walletBalance: user.walletBalance - plan.price
       }
     });
 

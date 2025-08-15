@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Get tokens from cookies
-    const accessToken = request.cookies.get('auth-token')?.value;
+    const accessToken = request.cookies.get('access_token')?.value;
     const refreshToken = request.cookies.get('refresh-token')?.value;
 
     // Revoke tokens if they exist
@@ -20,11 +20,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear cookies
-    response.cookies.delete('auth-token');
+    response.cookies.delete('access_token');
     response.cookies.delete('refresh-token');
 
     // Set additional cookie clearing options
-    response.cookies.set('auth-token', '', {
+    response.cookies.set('access_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',

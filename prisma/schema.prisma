@@ -26,6 +26,14 @@ model User {
   walletBalance   Float    @default(0)
   totalEarnings   Float    @default(0)
 
+  // Position-related fields
+  currentPositionId String?
+  currentPosition   PositionLevel? @relation(fields: [currentPositionId], references: [id])
+  positionStartDate DateTime?
+  positionEndDate   DateTime?
+  depositPaid       Float    @default(0)
+  isIntern          Boolean  @default(true)
+
   // Security fields
   failedLoginAttempts Int?     @default(0)
   lastFailedLogin     DateTime?
@@ -41,6 +49,10 @@ model User {
   transactions    WalletTransaction[]
   withdrawalRequests WithdrawalRequest[]
   referralActivities ReferralActivity[]
+  referralHierarchy ReferralHierarchy[] @relation("UserReferralHierarchy")
+  referrerHierarchy ReferralHierarchy[] @relation("ReferrerHierarchy")
+  managementBonuses TaskManagementBonus[] @relation("UserManagementBonuses")
+  subordinateBonuses TaskManagementBonus[] @relation("SubordinateBonuses")
 
   @@map("users")
 }
@@ -49,6 +61,24 @@ enum UserStatus {
   ACTIVE
   SUSPENDED
   BANNED
+}
+
+model PositionLevel {
+  id              String   @id @default(cuid())
+  name            String   @unique // "Intern", "P1", "P2", etc.
+  level           Int      @unique // 0 for Intern, 1 for P1, 2 for P2, etc.
+  deposit         Float    // Security deposit required (0 for Intern)
+  tasksPerDay     Int      // Number of tasks allowed per day
+  unitPrice       Float    // Price per task in PKR
+  validityDays    Int      // Validity period (4 for Intern, 365 for P1-P10)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  users           User[]
+
+  @@map("position_levels")
 }
 
 model Plan {
@@ -60,13 +90,13 @@ model Plan {
   dailyVideoLimit Int
   rewardPerVideo  Float
   referralBonus   Float    @default(0)
-  isActive        Boolean  @default(true)
+  isActive        Boolean  @default(false) // Deprecated - keeping for migration
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relations
   userPlans       UserPlan[]
-  
+
   @@map("plans")
 }
 
@@ -82,7 +112,7 @@ model UserPlan {
   status      PlanStatus @default(ACTIVE)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@unique([userId])
   @@map("user_plans")
 }
@@ -109,7 +139,7 @@ model Video {
 
   // Relations
   videoTasks    UserVideoTask[]
-  
+
   @@map("videos")
 }
 
@@ -122,11 +152,12 @@ model UserVideoTask {
   watchedAt     DateTime
   watchDuration Int      // in seconds
   rewardEarned  Float
+  positionLevel String?  // Position level when task was completed
   ipAddress     String?
   deviceId      String?
   isVerified    Boolean  @default(false) // anti-cheat verification
   createdAt     DateTime @default(now())
-  
+
   @@unique([userId, videoId])
   @@map("user_video_tasks")
 }
@@ -143,13 +174,21 @@ model WalletTransaction {
   status        TransactionStatus @default(COMPLETED)
   metadata      String?  // JSON string for additional data
   createdAt     DateTime @default(now())
-  
+
   @@map("wallet_transactions")
 }
 
 enum TransactionType {
   CREDIT
   DEBIT
+  POSITION_DEPOSIT
+  REFERRAL_REWARD_A
+  REFERRAL_REWARD_B
+  REFERRAL_REWARD_C
+  MANAGEMENT_BONUS_A
+  MANAGEMENT_BONUS_B
+  MANAGEMENT_BONUS_C
+  TASK_INCOME
 }
 
 enum TransactionStatus {
@@ -171,7 +210,7 @@ model WithdrawalRequest {
   transactionId  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   @@map("withdrawal_requests")
 }
 
@@ -235,7 +274,7 @@ model AdminUser {
   lastLogin DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("admin_users")
 }
 
@@ -250,6 +289,40 @@ model Setting {
   value     String   // JSON string for complex values
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("settings")
+}
+
+model ReferralHierarchy {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserReferralHierarchy", fields: [userId], references: [id], onDelete: Cascade)
+  referrerId  String
+  referrer    User     @relation("ReferrerHierarchy", fields: [referrerId], references: [id], onDelete: Cascade)
+  level       ReferralLevel // A, B, or C level
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, referrerId])
+  @@map("referral_hierarchy")
+}
+
+enum ReferralLevel {
+  A_LEVEL
+  B_LEVEL
+  C_LEVEL
+}
+
+model TaskManagementBonus {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserManagementBonuses", fields: [userId], references: [id], onDelete: Cascade)
+  subordinateId   String
+  subordinate     User     @relation("SubordinateBonuses", fields: [subordinateId], references: [id], onDelete: Cascade)
+  subordinateLevel ReferralLevel
+  bonusAmount     Float
+  taskDate        DateTime // Date when the subordinate completed tasks
+  taskIncome      Float    // Subordinate's task income that generated this bonus
+  createdAt       DateTime @default(now())
+
+  @@map("task_management_bonuses")
 }

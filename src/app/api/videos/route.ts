@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware';
+import { authMiddleware } from '@/lib/api-auth';
 import { db } from '@/lib/db';
+import { PositionService } from '@/lib/position-service';
 
 export async function GET(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -13,11 +14,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's current plan
-    const userPlan = await db.userPlan.findFirst({
-      where: { userId: user.id, status: 'ACTIVE' },
-      include: { plan: true }
-    });
+    // Check user's position and task availability
+    const canCompleteTask = await PositionService.canCompleteTask(user.id);
+    const userPosition = await PositionService.getUserCurrentPosition(user.id);
+
+    if (!userPosition || !userPosition.position) {
+      return NextResponse.json({
+        videos: [],
+        error: 'No active position found',
+        canCompleteTask: false
+      });
+    }
+
+    const tasksCompletedToday = await PositionService.getDailyTasksCompleted(user.id);
+    const dailyTaskLimit = userPosition.position.tasksPerDay;
+
+    // If user cannot complete more tasks, return empty array
+    if (!canCompleteTask.canComplete) {
+      return NextResponse.json({
+        videos: [],
+        dailyTaskLimit,
+        tasksCompletedToday,
+        canCompleteTask: false,
+        reason: canCompleteTask.reason
+      });
+    }
 
     // Get today's watched videos
     const today = new Date();
@@ -37,17 +58,6 @@ export async function GET(request: NextRequest) {
     });
 
     const watchedVideoIds = todayTasks.map(task => task.videoId);
-    const dailyLimit = userPlan?.plan?.dailyVideoLimit || 10;
-
-    // If user has reached daily limit, return empty array
-    if (watchedVideoIds.length >= dailyLimit) {
-      return NextResponse.json({
-        videos: [],
-        dailyLimit,
-        videosWatched: watchedVideoIds.length,
-        canWatchMore: false
-      });
-    }
 
     // Get available videos that haven't been watched today
     const videos = await db.video.findMany({
@@ -61,7 +71,7 @@ export async function GET(request: NextRequest) {
         ]
       },
       orderBy: { createdAt: 'desc' },
-      take: dailyLimit - watchedVideoIds.length
+      take: dailyTaskLimit - watchedVideoIds.length
     });
 
     return NextResponse.json({
@@ -72,11 +82,17 @@ export async function GET(request: NextRequest) {
         url: video.url,
         thumbnailUrl: video.thumbnailUrl,
         duration: video.duration,
-        rewardAmount: video.rewardAmount,
+        rewardAmount: userPosition.position.unitPrice, // Use position-based reward
       })),
-      dailyLimit,
-      videosWatched: watchedVideoIds.length,
-      canWatchMore: true
+      dailyTaskLimit,
+      tasksCompletedToday: watchedVideoIds.length,
+      canCompleteTask: true,
+      tasksRemaining: canCompleteTask.tasksRemaining,
+      currentPosition: {
+        name: userPosition.position.name,
+        level: userPosition.position.level,
+        unitPrice: userPosition.position.unitPrice
+      }
     });
 
   } catch (error) {

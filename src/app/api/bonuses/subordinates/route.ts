@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/api-auth';
-import { db } from '@/lib/db';
+import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,30 +13,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get fresh user data
-    const freshUser = await db.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        walletBalance: true,
-        totalEarnings: true,
-      }
-    });
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '20');
 
-    if (!freshUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    // Get subordinate activity
+    const subordinateActivity = await TaskManagementBonusService.getSubordinateActivity(
+      user.id,
+      limit
+    );
 
     return NextResponse.json({
-      balance: freshUser.walletBalance,
-      totalEarnings: freshUser.totalEarnings,
+      subordinateActivity,
+      totalSubordinates: subordinateActivity.length
     });
 
   } catch (error) {
-    console.error('Get wallet balance error:', error);
+    console.error('Get subordinate activity error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

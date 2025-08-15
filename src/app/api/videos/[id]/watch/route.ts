@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware';
+import { authMiddleware, validateVideoWatchRequest } from '@/lib/api-auth';
 import { db } from '@/lib/db';
-import { validateVideoWatchRequest } from '@/lib/security-middleware';
 import { ReferralService } from '@/lib/referral-service';
+import { PositionService } from '@/lib/position-service';
+import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
+import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -59,36 +61,35 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       );
     }
 
-    // Get user's current plan and check daily limit
-    const userPlan = await db.userPlan.findFirst({
-      where: { userId: user.id, status: 'ACTIVE' },
-      include: { plan: true }
-    });
+    // Check user's position and task limits using new position system
+    const canCompleteTask = await PositionService.canCompleteTask(user.id);
 
-    const dailyLimit = userPlan?.plan?.dailyVideoLimit || 10;
-    const rewardPerVideo = userPlan?.plan?.rewardPerVideo || video.rewardAmount;
-
-    // Count today's watched videos
-    const todayTasksCount = await db.userVideoTask.count({
-      where: {
-        userId: user.id,
-        watchedAt: {
-          gte: today,
-          lt: tomorrow
-        }
-      }
-    });
-
-    if (todayTasksCount >= dailyLimit) {
+    if (!canCompleteTask.canComplete) {
       return NextResponse.json(
-        { error: 'Daily video limit reached' },
+        { error: canCompleteTask.reason },
         { status: 400 }
       );
     }
 
+    // Get user's current position for reward calculation
+    const userPosition = await PositionService.getUserCurrentPosition(user.id);
+
+    if (!userPosition || !userPosition.position) {
+      return NextResponse.json(
+        { error: 'No active position found' },
+        { status: 400 }
+      );
+    }
+
+    const rewardPerVideo = userPosition.position.unitPrice;
+    const dailyLimit = userPosition.position.tasksPerDay;
+
+    // Count today's watched videos
+    const todayTasksCount = await PositionService.getDailyTasksCompleted(user.id);
+
     // Get client IP and device info
-    const ipAddress = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
+    const ipAddress = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
                      'unknown';
 
     const body = await request.json();
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     // Enhanced anti-cheat validation
     const minimumWatchTime = Math.max(video.duration * 0.8, 30); // 80% of video duration or 30 seconds minimum
-    
+
     if (watchDuration < minimumWatchTime) {
       return NextResponse.json(
         { error: 'Video not watched long enough' },
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Calculate reward
     const rewardEarned = rewardPerVideo;
 
-    // Create video task record with enhanced security data
+    // Create video task record with position information
     const videoTask = await db.userVideoTask.create({
       data: {
         userId: user.id,
@@ -123,34 +124,36 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         watchedAt: new Date(),
         watchDuration: watchDuration,
         rewardEarned: rewardEarned,
+        positionLevel: userPosition.position.name,
         ipAddress,
-        deviceId: 'web-client', // In real app, this would be from device fingerprinting
-        isVerified: true // In real app, this would be based on verification checks
+        deviceId: 'web-client',
+        isVerified: true
       }
     });
 
     // Update user's wallet balance and total earnings
     await db.user.update({
       where: { id: user.id },
-      data: { 
+      data: {
         walletBalance: user.walletBalance + rewardEarned,
         totalEarnings: user.totalEarnings + rewardEarned
       }
     });
 
-    // Create transaction record with security metadata
+    // Create transaction record
     await db.walletTransaction.create({
       data: {
         userId: user.id,
-        type: 'CREDIT',
+        type: 'TASK_INCOME',
         amount: rewardEarned,
         balanceAfter: user.walletBalance + rewardEarned,
-        description: `Video reward: ${video.title}`,
-        referenceId: `VIDEO_${videoTask.id}`,
+        description: `Task reward: ${video.title} (${userPosition.position.name})`,
+        referenceId: `TASK_${videoTask.id}`,
         status: 'COMPLETED',
         metadata: JSON.stringify({
           videoId: videoId,
           watchDuration: watchDuration,
+          positionLevel: userPosition.position.name,
           verificationData,
           userInteractions,
           ipAddress,
@@ -158,6 +161,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         })
       }
     });
+
+    // Distribute management bonuses to upline
+    const bonusResult = await TaskManagementBonusService.distributeManagementBonuses(
+      user.id,
+      rewardEarned,
+      new Date()
+    );
+
+    if (bonusResult.success && bonusResult.totalBonusDistributed > 0) {
+      console.log(`Management bonuses distributed: ${bonusResult.totalBonusDistributed} PKR`);
+    }
 
     // Process referral rewards
     const totalVideosWatched = await db.userVideoTask.count({
@@ -192,11 +206,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     return NextResponse.json({
-      message: 'Video completed successfully',
+      message: 'Task completed successfully',
       rewardEarned: rewardEarned,
       newBalance: user.walletBalance + rewardEarned,
-      videosWatchedToday: todayTasksCount + 1,
-      dailyLimit: dailyLimit
+      tasksCompletedToday: todayTasksCount + 1,
+      dailyTaskLimit: dailyLimit,
+      positionLevel: userPosition.position.name,
+      managementBonusDistributed: bonusResult.totalBonusDistributed,
+      bonusBreakdown: bonusResult.bonusBreakdown
     });
 
   } catch (error) {
@@ -215,26 +232,26 @@ function calculateSecurityScore(
   userInteractions: any[]
 ): number {
   let score = 100;
-  
+
   // Deduct points for short watch time
   if (watchDuration < videoDuration * 0.8) {
     score -= 30;
   }
-  
+
   // Deduct points for no user interactions
   if (userInteractions.length === 0) {
     score -= 20;
   }
-  
+
   // Deduct points for exact duration matches (possible automation)
   if (Math.abs(watchDuration - videoDuration) < 1) {
     score -= 15;
   }
-  
+
   // Deduct points for excessive watch time
   if (watchDuration > videoDuration * 1.5) {
     score -= 10;
   }
-  
+
   return Math.max(0, score);
 }
