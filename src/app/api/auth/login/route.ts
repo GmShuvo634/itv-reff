@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     // Record successful login
     rateLimiter.recordSuccess(request);
 
-    // Create response with user data
+    // Create response with user data and tokens
     response = NextResponse.json({
       success: true,
       message: 'Login successful',
@@ -108,6 +108,10 @@ export async function POST(request: NextRequest) {
         referralCode: user.referralCode,
         walletBalance: user.walletBalance,
         totalEarnings: user.totalEarnings,
+      },
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
       },
     });
 
@@ -120,12 +124,12 @@ export async function POST(request: NextRequest) {
     };
 
     // Set access token (short-lived)
-    response.cookies.set('auth-token', tokens.accessToken, {
+    response.cookies.set('access_token', tokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60, // 15 minutes
     });
 
-    // Set refresh token (longer-lived)
+    // Set refresh token (longer-lived) - keep for API route usage
     response.cookies.set('refresh-token', tokens.refreshToken, {
       ...cookieOptions,
       maxAge: validatedData.rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60, // 7 days or 1 day
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Login error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation failed', details: error.issues },

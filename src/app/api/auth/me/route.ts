@@ -7,8 +7,12 @@ export async function GET(request: NextRequest) {
   let response = NextResponse.json({ success: false, error: 'Authentication failed' }, { status: 401 });
 
   try {
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
+    // Get token from Authorization header or cookie
+    let token = request.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+      token = request.cookies.get('access_token')?.value;
+    }
 
     if (!token) {
       response = NextResponse.json(

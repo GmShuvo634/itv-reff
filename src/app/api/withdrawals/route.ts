@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware';
+import { authMiddleware } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = { userId: user.id };
-    
+
     if (status && ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED'].includes(status)) {
       where.status = status;
     }
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     });
 
     const weeklyWithdrawn = weeklyWithdrawals._sum.amount || 0;
-    
+
     if (weeklyWithdrawn + withdrawalAmount > weeklyLimit) {
       const remaining = weeklyLimit - weeklyWithdrawn;
       return NextResponse.json(

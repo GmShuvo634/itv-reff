@@ -5,10 +5,10 @@ export function generateDeviceFingerprint(request: NextRequest): string {
   const userAgent = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language') || '';
   const acceptEncoding = request.headers.get('accept-encoding') || '';
-  
+
   // Simple fingerprint based on headers
   const fingerprintString = `${userAgent}|${acceptLanguage}|${acceptEncoding}`;
-  
+
   // Create a simple hash (in production, use a proper hashing algorithm)
   let hash = 0;
   for (let i = 0; i < fingerprintString.length; i++) {
@@ -16,7 +16,7 @@ export function generateDeviceFingerprint(request: NextRequest): string {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
-  
+
   return Math.abs(hash).toString(36);
 }
 
@@ -45,9 +45,9 @@ export function checkRateLimit(
 ): { allowed: boolean; remaining: number; resetTime: number } {
   const now = Date.now();
   const key = `rate_limit:${identifier}`;
-  
+
   let data = rateLimitStore.get(key);
-  
+
   if (!data || now > data.resetTime) {
     // Create new rate limit entry
     data = {
@@ -55,24 +55,24 @@ export function checkRateLimit(
       resetTime: now + windowMs
     };
     rateLimitStore.set(key, data);
-    
+
     // Clean up expired entries
     setTimeout(() => {
       rateLimitStore.delete(key);
     }, windowMs);
-    
+
     return { allowed: true, remaining: maxRequests - 1, resetTime: data.resetTime };
   }
-  
+
   if (data.count >= maxRequests) {
     return { allowed: false, remaining: 0, resetTime: data.resetTime };
   }
-  
+
   data.count++;
-  return { 
-    allowed: true, 
-    remaining: maxRequests - data.count, 
-    resetTime: data.resetTime 
+  return {
+    allowed: true,
+    remaining: maxRequests - data.count,
+    resetTime: data.resetTime
   };
 }
 
@@ -84,42 +84,42 @@ export function validateVideoWatch(
 ): { valid: boolean; confidence: number; reasons: string[] } {
   const reasons: string[] = [];
   let confidence = 1.0;
-  
+
   // Check minimum watch time (80% of video duration)
   const minimumWatchTime = videoDuration * 0.8;
   if (reportedDuration < minimumWatchTime) {
     reasons.push('Video not watched long enough');
     confidence *= 0.3;
   }
-  
+
   // Check for suspicious patterns (e.g., exact duration matches)
   if (Math.abs(reportedDuration - videoDuration) < 1) {
     reasons.push('Exact duration match - possible automation');
     confidence *= 0.7;
   }
-  
+
   // Check user interaction patterns
   if (userInteractions.length === 0) {
     reasons.push('No user interactions detected');
     confidence *= 0.5;
   }
-  
+
   // Check for consistent interaction timing (possible bot)
   if (userInteractions.length > 1) {
     const intervals: number[] = [];
     for (let i = 1; i < userInteractions.length; i++) {
       intervals.push(userInteractions[i].timestamp - userInteractions[i - 1].timestamp);
     }
-    
+
     const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
     const variance = intervals.reduce((sum, interval) => sum + Math.pow(interval - avgInterval, 2), 0) / intervals.length;
-    
+
     if (variance < 100) { // Low variance suggests bot-like behavior
       reasons.push('Suspiciously consistent interaction timing');
       confidence *= 0.6;
     }
   }
-  
+
   return {
     valid: confidence > 0.5,
     confidence,
@@ -134,29 +134,29 @@ export function detectMultipleAccounts(
   existingAccounts: Array<{ ip: string; device: string; createdAt: Date }>
 ): { suspicious: boolean; reasons: string[] } {
   const reasons: string[] = [];
-  
+
   // Check for multiple accounts from same IP
   const sameIPAccounts = existingAccounts.filter(account => account.ip === currentIP);
   if (sameIPAccounts.length >= 3) {
     reasons.push(`Multiple accounts (${sameIPAccounts.length}) from same IP`);
   }
-  
+
   // Check for multiple accounts from same device
   const sameDeviceAccounts = existingAccounts.filter(account => account.device === currentDevice);
   if (sameDeviceAccounts.length >= 2) {
     reasons.push(`Multiple accounts (${sameDeviceAccounts.length}) from same device`);
   }
-  
+
   // Check for rapid account creation from same IP
   const recentAccounts = sameIPAccounts.filter(account => {
     const timeDiff = Date.now() - account.createdAt.getTime();
     return timeDiff < 24 * 60 * 60 * 1000; // 24 hours
   });
-  
+
   if (recentAccounts.length >= 2) {
     reasons.push(`Rapid account creation (${recentAccounts.length} in 24 hours)`);
   }
-  
+
   return {
     suspicious: reasons.length > 0,
     reasons
@@ -197,17 +197,17 @@ export function getSecurityHeaders() {
 
 // Session security
 export function validateSession(request: NextRequest): boolean {
-  const token = request.cookies.get('auth-token')?.value;
-  
+  const token = request.cookies.get('access_token')?.value;
+
   if (!token) {
     return false;
   }
-  
+
   // Check for suspicious patterns in token
   if (token.length < 10 || token.includes(' ')) {
     return false;
   }
-  
+
   return true;
 }
 
@@ -232,7 +232,7 @@ const activityLog: UserActivity[] = [];
 
 export function logActivity(activity: UserActivity): void {
   activityLog.push(activity);
-  
+
   // Keep only last 1000 activities
   if (activityLog.length > 1000) {
     activityLog.splice(0, activityLog.length - 1000);
@@ -242,16 +242,16 @@ export function logActivity(activity: UserActivity): void {
 export function getSuspiciousActivities(userId: string): UserActivity[] {
   const userActivities = activityLog.filter(a => a.userId === userId);
   const suspiciousActivities: UserActivity[] = [];
-  
+
   // Check for rapid successive actions
   for (let i = 1; i < userActivities.length; i++) {
     const timeDiff = userActivities[i].timestamp.getTime() - userActivities[i - 1].timestamp.getTime();
-    
+
     if (timeDiff < 1000) { // Less than 1 second between actions
       suspiciousActivities.push(userActivities[i]);
     }
   }
-  
+
   return suspiciousActivities;
 }
 

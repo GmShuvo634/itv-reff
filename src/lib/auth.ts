@@ -161,10 +161,10 @@ export async function createUser(userData: {
 }): Promise<User | null> {
   try {
     const hashedPassword = await hashPassword(userData.password);
-    
+
     // Generate unique referral code
     const referralCode = generateReferralCode();
-    
+
     // Check if user was referred by someone
     let referredBy: string | null = null;
     if (userData.referralCode) {
@@ -232,5 +232,293 @@ export async function getUserById(id: string): Promise<Partial<User> | null> {
   } catch (error) {
     console.error('Get user error:', error);
     return null;
+  }
+}
+
+// Server-side user fetching for SSR authentication
+export async function getUserFromServer() {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const token = cookieStore.get("access_token")?.value;
+
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${process.env.BACKEND_URL}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Cookie: `access_token=${token}`
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return data.success ? data.user : null;
+  } catch (error) {
+    console.error('getUserFromServer error:', error);
+    return null;
+  }
+}
+
+// Helper function to validate redirect paths (prevent open redirect attacks)
+function validateRedirectPath(path: string): string {
+  // Default safe path
+  const defaultPath = "/dashboard";
+
+  if (!path || typeof path !== "string") {
+    return defaultPath;
+  }
+
+  // Remove any whitespace
+  path = path.trim();
+
+  // Must start with "/" and not be a protocol-relative URL
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    return defaultPath;
+  }
+
+  // Reject absolute URLs with protocols
+  if (path.includes("://") || path.startsWith("http") || path.startsWith("ftp")) {
+    return defaultPath;
+  }
+
+  // Additional safety checks
+  if (path.includes("..") || path.includes("\\")) {
+    return defaultPath;
+  }
+
+  return path;
+}
+
+// Helper function to extract and set authentication cookies
+async function setAuthCookiesFromResponse(response: Response, rememberMe: boolean = false) {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+
+  // Try to extract access_token from Set-Cookie header
+  const setCookieHeader = response.headers.get("set-cookie");
+  let accessToken: string | null = null;
+
+  if (setCookieHeader) {
+    // Parse Set-Cookie header for access_token
+    const accessTokenMatch = setCookieHeader.match(/access_token=([^;]+)/);
+    if (accessTokenMatch) {
+      accessToken = accessTokenMatch[1];
+    }
+  }
+
+  // If not found in headers, try response body
+  if (!accessToken) {
+    try {
+      const data = await response.clone().json();
+      if (data.tokens?.accessToken) {
+        accessToken = data.tokens.accessToken;
+      }
+    } catch (e) {
+      // Response body might not be JSON or already consumed
+    }
+  }
+
+  if (accessToken) {
+    // Set secure cookie options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+
+    // Set access token with appropriate expiration
+    cookieStore.set('access_token', accessToken, {
+      ...cookieOptions,
+      maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60, // 7 days or 15 minutes
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+// Server action for login with redirect-after-login functionality
+export async function loginAction(prevState: any, formData: FormData) {
+  "use server";
+
+  const { cookies } = await import("next/headers");
+  const { redirect } = await import("next/navigation");
+
+  // Validate environment configuration
+  if (!process.env.BACKEND_URL) {
+    return {
+      error: "Server configuration error. Please try again later."
+    };
+  }
+
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const rememberMe = formData.get("rememberMe") === "on";
+
+  try {
+    const response = await fetch(`${process.env.BACKEND_URL}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password, rememberMe }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      // Set authentication cookies in the browser
+      const cookiesSet = await setAuthCookiesFromResponse(response, rememberMe);
+
+      if (!cookiesSet) {
+        // Fallback: manually set cookie if extraction failed
+        const cookieStore = await cookies();
+        if (data.tokens?.accessToken) {
+          cookieStore.set('access_token', data.tokens.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60,
+          });
+        }
+      }
+
+      // Get and validate redirect path
+      const cookieStore = await cookies();
+      const rawRedirectPath = cookieStore.get("redirect_after_login")?.value;
+      const redirectPath = validateRedirectPath(rawRedirectPath || "/dashboard");
+
+      // Clear redirect cookie
+      cookieStore.delete("redirect_after_login");
+
+      redirect(redirectPath);
+    } else {
+      // Return error state for client-side handling
+      return {
+        error: data.error || "Login failed"
+      };
+    }
+  } catch (error: any) {
+    // Check if this is a Next.js redirect (expected behavior)
+    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) {
+      // This is expected behavior for redirects, re-throw to allow redirect to work
+      throw error;
+    }
+
+    // Log actual errors only
+    console.error("Login action error:", error);
+    return {
+      error: "Network error. Please try again."
+    };
+  }
+}
+
+// Server action for registration with redirect functionality
+export async function registerAction(prevState: any, formData: FormData) {
+  "use server";
+
+  const { redirect } = await import("next/navigation");
+
+  // Validate environment configuration
+  if (!process.env.BACKEND_URL) {
+    return {
+      error: "Server configuration error. Please try again later."
+    };
+  }
+
+  const name = formData.get("name") as string;
+  const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
+  const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+  const referralCode = formData.get("referralCode") as string;
+
+  // Basic validation
+  if (!name || !email || !password) {
+    return {
+      error: "Please fill in all required fields"
+    };
+  }
+
+  if (password !== confirmPassword) {
+    return {
+      error: "Passwords do not match"
+    };
+  }
+
+  if (password.length < 6) {
+    return {
+      error: "Password must be at least 6 characters long"
+    };
+  }
+
+  // Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return {
+      error: "Please enter a valid email address"
+    };
+  }
+
+  try {
+    const response = await fetch(`${process.env.BACKEND_URL}/api/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        phone: phone || undefined,
+        password,
+        confirmPassword,
+        referralCode: referralCode || undefined
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      // Set authentication cookies for automatic login after registration
+      const cookiesSet = await setAuthCookiesFromResponse(response, false); // Default to short session for new users
+
+      if (!cookiesSet) {
+        // Fallback: manually set cookie if extraction failed
+        const { cookies } = await import("next/headers");
+        const cookieStore = await cookies();
+        if (data.tokens?.accessToken) {
+          cookieStore.set('access_token', data.tokens.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 15 * 60, // 15 minutes for new registrations
+          });
+        }
+      }
+
+      // Redirect to dashboard after successful registration and auto-login
+      redirect("/dashboard");
+    } else {
+      return {
+        error: data.error || "Registration failed"
+      };
+    }
+  } catch (error: any) {
+    // Check if this is a Next.js redirect (expected behavior)
+    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+
+    console.error("Registration action error:", error);
+    return {
+      error: "Network error. Please try again."
+    };
   }
 }

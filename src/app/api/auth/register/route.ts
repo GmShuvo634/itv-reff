@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createUser } from '@/lib/auth';
-import { validateRegistrationRequest } from '@/lib/security-middleware';
+import { validateRegistrationRequest } from '@/lib/api-auth';
 import { getClientIP, generateDeviceFingerprint, validateEmail, validatePhone } from '@/lib/security';
 import { ReferralService } from '@/lib/referral-service';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { SecureTokenManager } from '@/lib/token-manager';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     const validatedData = registerSchema.parse(body);
-    
+
     // Additional security validation
     if (!validateEmail(validatedData.email)) {
       response = NextResponse.json(
@@ -148,7 +149,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Return success response without sensitive data
+    // Generate tokens for automatic login
+    const tokens = SecureTokenManager.generateTokenPair(user.id, user.email);
+
+    // Return success response with user data and tokens
     response = NextResponse.json({
       success: true,
       message: 'User created successfully',
@@ -157,6 +161,12 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         referralCode: user.referralCode,
+        walletBalance: user.walletBalance,
+        totalEarnings: user.totalEarnings,
+      },
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
       },
       referral: validatedData.referralCode ? {
         applied: true,
@@ -164,11 +174,31 @@ export async function POST(request: NextRequest) {
       } : null
     });
 
+    // Set secure cookies for automatic login
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+
+    // Set access token (short-lived)
+    response.cookies.set('access_token', tokens.accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60, // 15 minutes
+    });
+
+    // Set refresh token (longer-lived)
+    response.cookies.set('refresh-token', tokens.refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+
     return addAPISecurityHeaders(response);
 
   } catch (error) {
     console.error('Registration error:', error);
-    
+
     if (error instanceof z.ZodError) {
       response = NextResponse.json(
         { error: 'Validation failed', details: error.issues },

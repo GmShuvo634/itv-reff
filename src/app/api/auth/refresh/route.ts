@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
 
     if (!rateLimit.allowed) {
       response = NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Too many refresh attempts',
           retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
         },
@@ -46,10 +46,10 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Invalid or expired refresh token' },
         { status: 401 }
       );
-      
+
       response.cookies.delete('refresh-token');
-      response.cookies.delete('auth-token');
-      
+      response.cookies.delete('access_token');
+
       return addAPISecurityHeaders(response);
     }
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Set new access token (short-lived)
-    response.cookies.set('auth-token', newTokens.accessToken, {
+    response.cookies.set('access_token', newTokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60, // 15 minutes
     });
@@ -83,12 +83,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Token refresh error:', error);
-    
+
     response = NextResponse.json(
       { success: false, error: 'Token refresh failed' },
       { status: 500 }
     );
-    
+
     return addAPISecurityHeaders(response);
   }
 }
