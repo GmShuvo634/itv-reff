@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'User Not Found!' },
+        { status: 404 }
       );
     }
 
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
     }
 
     const tasksCompletedToday = await PositionService.getDailyTasksCompleted(user.id);
-    const dailyTaskLimit = userPosition.position.tasksPerDay;
+    const position = userPosition.position!;
+    const dailyTaskLimit = position.tasksPerDay;
 
     // If user cannot complete more tasks, return empty array
     if (!canCompleteTask.canComplete) {
@@ -82,16 +83,16 @@ export async function GET(request: NextRequest) {
         url: video.url,
         thumbnailUrl: video.thumbnailUrl,
         duration: video.duration,
-        rewardAmount: userPosition.position.unitPrice, // Use position-based reward
+        rewardAmount: position.unitPrice, // Use position-based reward
       })),
       dailyTaskLimit,
       tasksCompletedToday: watchedVideoIds.length,
       canCompleteTask: true,
       tasksRemaining: canCompleteTask.tasksRemaining,
       currentPosition: {
-        name: userPosition.position.name,
-        level: userPosition.position.level,
-        unitPrice: userPosition.position.unitPrice
+        name: position.name,
+        level: position.level,
+        unitPrice: position.unitPrice
       }
     });
 
