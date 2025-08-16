@@ -281,20 +281,24 @@ export class ReferralService {
     event: string
   ): Promise<ReferralReward | null> {
     try {
-      const reward = await db.referralReward.findFirst({
+      // First get all potentially active rewards
+      const rewards = await db.referralReward.findMany({
         where: {
           triggerEvent: event,
           isActive: true,
           validFrom: { lte: new Date() },
           OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
-          OR: [
-            { maxRewards: null },
-            { currentRewards: { lt: db.referralReward.fields.maxRewards } },
-          ],
         },
+        orderBy: { createdAt: 'asc' }, // Get oldest first for fairness
       });
 
-      return reward;
+      // Filter rewards that haven't reached their max limit
+      const availableRewards = rewards.filter(reward => {
+        return reward.maxRewards === null || reward.currentRewards < reward.maxRewards;
+      });
+
+      // Return the first available reward
+      return availableRewards.length > 0 ? availableRewards[0] : null;
     } catch (error) {
       console.error("Error getting active reward:", error);
       return null;

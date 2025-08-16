@@ -32,6 +32,16 @@ export interface ManagementBonusStats {
   };
 }
 
+export interface SubordinateActivity {
+subordinateId: string;
+subordinateName: string;
+subordinateEmail: string;
+level: ReferralLevel;
+todayBonuses: number;
+monthlyBonuses: number;
+lastActivityDate: Date | null;
+}
+
 export class TaskManagementBonusService {
   private static readonly BONUS_RATES: Record<ReferralLevel, number> = {
     A_LEVEL: 0.06, // 6%
