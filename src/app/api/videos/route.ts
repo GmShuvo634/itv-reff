@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const position = userPosition.position!;
     const dailyTaskLimit = position.tasksPerDay;
 
+
+
     // If user cannot complete more tasks, return empty array
     if (!canCompleteTask.canComplete) {
       return NextResponse.json({
@@ -60,20 +62,32 @@ export async function GET(request: NextRequest) {
 
     const watchedVideoIds = todayTasks.map(task => task.videoId);
 
-    // Get available videos that haven't been watched today
+    // Get available videos that haven't been watched today and match user's position level
     const videos = await db.video.findMany({
       where: {
         isActive: true,
         id: { notIn: watchedVideoIds },
         availableFrom: { lte: new Date() },
-        OR: [
-          { availableTo: null },
-          { availableTo: { gte: new Date() } }
+        AND: [
+          {
+            OR: [
+              { availableTo: null },
+              { availableTo: { gte: new Date() } }
+            ]
+          },
+          {
+            OR: [
+              { positionLevelId: position.id }, // Videos specifically for this position
+              { positionLevelId: null }, // Videos available to all positions
+            ]
+          }
         ]
       },
       orderBy: { createdAt: 'desc' },
       take: dailyTaskLimit - watchedVideoIds.length
     });
+
+
 
     return NextResponse.json({
       videos: videos.map(video => ({
