@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { SecureTokenManager } from '@/lib/token-manager';
-import { getUserById } from '@/lib/auth';
+import { getUserById } from '@/lib/api/auth';
 
 // API authentication middleware replacement
 export async function authMiddleware(request: NextRequest) {

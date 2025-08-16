@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { authenticateUser, checkAccountLockout, recordFailedLogin, resetFailedLogins } from '@/lib/auth';
 import { SecureTokenManager } from '@/lib/token-manager';
 import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { validateCSRF } from '@/lib/csrf-protection';
 import { db } from '@/lib/db';
+import { authenticateUser, checkAccountLockout, recordFailedLogin, resetFailedLogins } from '@/lib/api/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
@@ -14,7 +14,9 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  let response = NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+
+
+  let response: NextResponse = NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
 
   try {
     // Apply rate limiting

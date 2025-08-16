@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 import { db } from '@/lib/db';
 

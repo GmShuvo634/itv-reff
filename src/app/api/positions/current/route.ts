@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 import { PositionService } from '@/lib/position-service';
 
 export async function GET(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userPosition = await PositionService.getUserCurrentPosition(user.id);
-    
+
     if (!userPosition) {
       return NextResponse.json(
         { error: 'User not found' },

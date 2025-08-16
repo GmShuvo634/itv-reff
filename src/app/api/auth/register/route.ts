@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createUser } from '@/lib/auth';
-import { validateRegistrationRequest } from '@/lib/api-auth';
+import { validateRegistrationRequest } from '@/lib/api/api-auth';
 import { getClientIP, generateDeviceFingerprint, validateEmail, validatePhone } from '@/lib/security';
 import { ReferralService } from '@/lib/referral-service';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SecureTokenManager } from '@/lib/token-manager';
+import { createUser } from '@/lib/api/auth';
 
 const registerSchema = z.object({
   email: z.email('Invalid email address'),

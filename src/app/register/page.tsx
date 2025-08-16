@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getUserFromServer, registerAction } from "@/lib/auth";
 import RegisterForm from "@/components/RegisterForm";
+import { getUserFromServer, registerAction } from "@/lib/api/auth";
 
 export default async function RegisterPage() {
   const user = await getUserFromServer();

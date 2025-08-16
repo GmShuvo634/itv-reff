@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getUserFromServer } from "@/lib/auth";
+import { getUserFromServer } from "@/lib/api/auth";
 
 export default async function ReferralsPage() {
   const user = await getUserFromServer();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserById } from '@/lib/auth';
+import { getUserById } from '@/lib/api/auth';
 import { SecureTokenManager } from '@/lib/token-manager';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 

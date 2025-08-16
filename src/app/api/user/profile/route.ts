@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },

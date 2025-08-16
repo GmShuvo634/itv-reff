@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
 
 export async function GET(request: NextRequest) {
