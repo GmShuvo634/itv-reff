@@ -1,53 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
-import { db } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { authMiddleware } from "@/lib/api-auth";
+import { db } from "@/lib/db";
+import { TransactionType, TransactionStatus } from "@prisma/client";
+import { addAPISecurityHeaders } from "@/lib/security-headers";
 
-export async function POST(request: NextRequest) {
+// Type definitions for API responses
+interface SubscribeSuccessResponse {
+  message: string;
+  subscription: {
+    id: string;
+    planName: string;
+    startDate: Date;
+    endDate: Date;
+    amountPaid: number;
+    status: string;
+  };
+}
+
+interface SubscribeErrorResponse {
+  error: string;
+}
+
+type SubscribeResponse = SubscribeSuccessResponse | SubscribeErrorResponse;
+
+export async function POST(request: NextRequest): Promise<NextResponse<SubscribeResponse>> {
   try {
     const user = await authMiddleware(request);
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
+    if (!user || !user.id) {
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "Authentication required" },
         { status: 401 }
-      );
+      ));
     }
 
     const body = await request.json();
     const { planId, paymentMethod, paymentDetails } = body;
 
     if (!planId) {
-      return NextResponse.json(
-        { error: 'Plan ID is required' },
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "Plan ID is required" },
         { status: 400 }
-      );
+      ));
     }
 
     // Get the plan
     const plan = await db.plan.findUnique({
-      where: { id: planId, isActive: true }
+      where: { id: planId, isActive: true },
     });
 
     if (!plan) {
-      return NextResponse.json(
-        { error: 'Plan not found' },
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "Plan not found" },
         { status: 404 }
-      );
+      ));
     }
 
     // Check if user already has an active plan
     const existingPlan = await db.userPlan.findFirst({
       where: {
         userId: user.id,
-        status: 'ACTIVE'
-      }
+        status: "ACTIVE",
+      },
     });
 
     if (existingPlan) {
-      return NextResponse.json(
-        { error: 'You already have an active plan' },
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "You already have an active plan" },
         { status: 400 }
-      );
+      ));
     }
 
     // In a real implementation, you would process the payment here
@@ -55,10 +76,10 @@ export async function POST(request: NextRequest) {
     const paymentSuccessful = true;
 
     if (!paymentSuccessful) {
-      return NextResponse.json(
-        { error: 'Payment failed' },
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "Payment failed" },
         { status: 400 }
-      );
+      ));
     }
 
     // Calculate plan end date
@@ -74,48 +95,55 @@ export async function POST(request: NextRequest) {
         amountPaid: plan.price,
         startDate,
         endDate,
-        status: 'ACTIVE'
-      }
+        status: "ACTIVE",
+      },
     });
+
+    // Ensure user has required properties for transaction
+    if (typeof user.walletBalance !== 'number') {
+      return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+        { error: "User wallet balance not available" },
+        { status: 500 }
+      ));
+    }
 
     // Create transaction record
     await db.walletTransaction.create({
       data: {
         userId: user.id,
-        type: 'DEBIT',
+        type: TransactionType.DEBIT,
         amount: plan.price,
         balanceAfter: user.walletBalance - plan.price,
         description: `Plan subscription: ${plan.name}`,
         referenceId: `PLAN_${userPlan.id}`,
-        status: 'COMPLETED'
-      }
+        status: TransactionStatus.COMPLETED,
+      },
     });
 
     // Update user's wallet balance
     await db.user.update({
       where: { id: user.id },
       data: {
-        walletBalance: user.walletBalance - plan.price
-      }
+        walletBalance: user.walletBalance - plan.price,
+      },
     });
 
-    return NextResponse.json({
-      message: 'Subscription successful',
+    return addAPISecurityHeaders(NextResponse.json<SubscribeSuccessResponse>({
+      message: "Subscription successful",
       subscription: {
         id: userPlan.id,
         planName: plan.name,
         startDate: userPlan.startDate,
         endDate: userPlan.endDate,
         amountPaid: userPlan.amountPaid,
-        status: userPlan.status
-      }
-    });
-
+        status: userPlan.status,
+      },
+    }));
   } catch (error) {
-    console.error('Subscription error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
+    console.error("Subscription error:", error);
+    return addAPISecurityHeaders(NextResponse.json<SubscribeErrorResponse>(
+      { error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

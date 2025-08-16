@@ -1,14 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { SecureTokenManager } from '@/lib/token-manager';
-import { addAPISecurityHeaders } from '@/lib/security-headers';
+import { NextRequest, NextResponse } from "next/server";
+import { SecureTokenManager } from "@/lib/token-manager";
+import { addAPISecurityHeaders } from "@/lib/security-headers";
 
-export async function POST(request: NextRequest) {
-  let response = NextResponse.json({ success: true, message: 'Logged out successfully' });
+// Type definitions for API responses
+interface LogoutSuccessResponse {
+  success: true;
+  message: string;
+}
+
+interface LogoutErrorResponse {
+  success: false;
+  error: string;
+}
+
+type LogoutResponse = LogoutSuccessResponse | LogoutErrorResponse;
+
+export async function POST(request: NextRequest): Promise<NextResponse<LogoutResponse>> {
+  let response = NextResponse.json<LogoutSuccessResponse>({
+    success: true,
+    message: "Logged out successfully",
+  });
 
   try {
     // Get tokens from cookies
-    const accessToken = request.cookies.get('access_token')?.value;
-    const refreshToken = request.cookies.get('refresh-token')?.value;
+    const accessToken = request.cookies.get("access_token")?.value;
+    const refreshToken = request.cookies.get("refresh-token")?.value;
 
     // Revoke tokens if they exist
     if (accessToken) {
@@ -20,36 +36,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear cookies
-    response.cookies.delete('access_token');
-    response.cookies.delete('refresh-token');
+    response.cookies.delete("access_token");
+    response.cookies.delete("refresh-token");
 
     // Set additional cookie clearing options
-    response.cookies.set('access_token', '', {
+    response.cookies.set("access_token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 0,
     });
 
-    response.cookies.set('refresh-token', '', {
+    response.cookies.set("refresh-token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 0,
     });
 
     return addAPISecurityHeaders(response);
-
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error("Logout error:", error);
 
-    response = NextResponse.json(
-      { success: false, error: 'Logout failed' },
+    return addAPISecurityHeaders(NextResponse.json<LogoutErrorResponse>(
+      { success: false, error: "Logout failed" },
       { status: 500 }
-    );
-
-    return addAPISecurityHeaders(response);
+    ));
   }
 }

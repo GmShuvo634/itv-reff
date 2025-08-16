@@ -6,14 +6,65 @@ import { PositionService } from '@/lib/position-service';
 import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
 import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 
-export async function GET(request: NextRequest) {
-  let response = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+// Type definitions for API responses
+interface DashboardSuccessResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    walletBalance: number;
+    totalEarnings: number;
+    referralCode: string;
+  };
+  position: {
+    id: string;
+    name: string;
+    level: number;
+    tasksPerDay: number;
+    unitPrice: number;
+    validityDays: number;
+  };
+  taskStats: {
+    tasksCompletedToday: number;
+    dailyTaskLimit: number;
+    canCompleteTask: boolean;
+    nextTaskAvailable: boolean;
+  };
+  earnings: {
+    totalEarningsToday: number;
+    taskIncome: number;
+    referralRewards: number;
+    managementBonuses: number;
+  };
+  teamStats: {
+    subordinateCount: number;
+    dailyManagementBonuses: number;
+    monthlyManagementBonuses: number;
+    referralHierarchy: any;
+  };
+  recentTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    description: string;
+    createdAt: string;
+  }>;
+}
+
+interface DashboardErrorResponse {
+  error: string;
+}
+
+type DashboardResponse = DashboardSuccessResponse | DashboardErrorResponse;
+
+export async function GET(request: NextRequest): Promise<NextResponse<DashboardResponse>> {
+  let response: NextResponse<DashboardResponse>;
 
   try {
     const user = await authMiddleware(request);
 
     if (!user) {
-      response = NextResponse.json(
+      response = NextResponse.json<DashboardErrorResponse>(
         { error: 'Authentication required' },
         { status: 401 }
       );
@@ -24,7 +75,7 @@ export async function GET(request: NextRequest) {
     const userPosition = await PositionService.getUserCurrentPosition(user.id);
 
     if (!userPosition) {
-      response = NextResponse.json(
+      response = NextResponse.json<DashboardErrorResponse>(
         { error: 'User position not found' },
         { status: 404 }
       );
@@ -95,7 +146,7 @@ export async function GET(request: NextRequest) {
     const totalReferrals = referralHierarchyStats.aLevelCount + referralHierarchyStats.bLevelCount + referralHierarchyStats.cLevelCount;
     const totalReferralEarnings = referralHierarchyStats.totalEarnings.total;
 
-    response = NextResponse.json({
+    response = NextResponse.json<DashboardSuccessResponse>({
       user: {
         id: user.id,
         email: user.email,
@@ -104,26 +155,25 @@ export async function GET(request: NextRequest) {
         totalEarnings: user.totalEarnings,
         referralCode: user.referralCode,
       },
-      currentPosition: userPosition.position ? {
+      position: {
         id: userPosition.position.id,
         name: userPosition.position.name,
         level: userPosition.position.level,
         tasksPerDay: userPosition.position.tasksPerDay,
         unitPrice: userPosition.position.unitPrice,
-        isExpired: userPosition.isExpired,
-        daysRemaining: userPosition.daysRemaining
-      } : null,
-      todayProgress: {
-        videosWatched: tasksCompletedToday,
-        dailyLimit: userPosition.position?.tasksPerDay || 0,
-        earningsToday: totalEarningsToday,
-        canCompleteTask: canCompleteTask.canComplete,
-        tasksRemaining: canCompleteTask.tasksRemaining || 0,
-        incomeStreams
+        validityDays: userPosition.position.validityDays,
       },
-      referralStats: {
-        totalReferrals,
-        referralEarnings: totalReferralEarnings
+      taskStats: {
+        tasksCompletedToday: tasksCompletedToday,
+        dailyTaskLimit: userPosition.position?.tasksPerDay || 0,
+        canCompleteTask: canCompleteTask.canComplete,
+        nextTaskAvailable: canCompleteTask.canComplete,
+      },
+      earnings: {
+        totalEarningsToday: totalEarningsToday,
+        taskIncome: incomeStreams.taskIncome,
+        referralRewards: incomeStreams.referralRewards,
+        managementBonuses: incomeStreams.managementBonuses,
       },
       teamStats: {
         subordinateCount: managementBonusStats.subordinateCount,
@@ -144,10 +194,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Dashboard API error:', error);
-    response = NextResponse.json(
+    return addAPISecurityHeaders(NextResponse.json<DashboardErrorResponse>(
       { error: 'Internal server error' },
       { status: 500 }
-    );
-    return addAPISecurityHeaders(response);
+    ));
   }
 }

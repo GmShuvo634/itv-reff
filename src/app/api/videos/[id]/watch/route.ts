@@ -5,6 +5,7 @@ import { ReferralService } from '@/lib/referral-service';
 import { PositionService } from '@/lib/position-service';
 import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
 import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
+import { TransactionType, TransactionStatus } from '@prisma/client';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -144,12 +145,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     await db.walletTransaction.create({
       data: {
         userId: user.id,
-        type: 'TASK_INCOME',
+        type: TransactionType.TASK_INCOME,
         amount: rewardEarned,
         balanceAfter: user.walletBalance + rewardEarned,
         description: `Task reward: ${video.title} (${userPosition.position.name})`,
         referenceId: `TASK_${videoTask.id}`,
-        status: 'COMPLETED',
+        status: TransactionStatus.COMPLETED,
         metadata: JSON.stringify({
           videoId: videoId,
           watchDuration: watchDuration,

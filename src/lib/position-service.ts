@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { PositionLevel, User } from '@prisma/client';
+import { PositionLevel, User, TransactionType, TransactionStatus } from '@prisma/client';
 
 export interface PositionIncomeCalculation {
   dailyIncome: number;
@@ -144,12 +144,12 @@ export class PositionService {
         await tx.walletTransaction.create({
           data: {
             userId,
-            type: 'POSITION_DEPOSIT',
+            type: TransactionType.POSITION_DEPOSIT,
             amount: -targetPosition.deposit,
             balanceAfter: user.walletBalance - targetPosition.deposit,
             description: `Position upgrade to ${targetPosition.name}`,
             referenceId: `POSITION_UPGRADE_${targetPosition.name}_${userId}_${Date.now()}`,
-            status: 'COMPLETED',
+            status: TransactionStatus.COMPLETED,
             metadata: JSON.stringify({
               positionId: targetPosition.id,
               positionName: targetPosition.name,

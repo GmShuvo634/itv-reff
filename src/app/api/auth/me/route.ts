@@ -3,8 +3,34 @@ import { getUserById } from '@/lib/auth';
 import { SecureTokenManager } from '@/lib/token-manager';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 
-export async function GET(request: NextRequest) {
-  let response = NextResponse.json({ success: false, error: 'Authentication failed' }, { status: 401 });
+// Type definitions for API responses
+interface MeSuccessResponse {
+  success: true;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    phone: string | null;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+    referralCode: string;
+    status: string;
+    walletBalance: number;
+    totalEarnings: number;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
+
+interface MeErrorResponse {
+  success: false;
+  error: string;
+}
+
+type MeResponse = MeSuccessResponse | MeErrorResponse;
+
+export async function GET(request: NextRequest): Promise<NextResponse<MeResponse>> {
+  let response: NextResponse<MeResponse>;
 
   try {
     // Get token from Authorization header or cookie
@@ -15,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!token) {
-      response = NextResponse.json(
+      response = NextResponse.json<MeErrorResponse>(
         { success: false, error: 'No authentication token found' },
         { status: 401 }
       );
@@ -25,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Verify token using SecureTokenManager
     const payload = SecureTokenManager.verifyAccessToken(token);
     if (!payload) {
-      response = NextResponse.json(
+      response = NextResponse.json<MeErrorResponse>(
         { success: false, error: 'Invalid or expired token' },
         { status: 401 }
       );
@@ -35,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Get user from database
     const user = await getUserById(payload.userId);
     if (!user || !user.id || user.status !== 'ACTIVE') {
-      response = NextResponse.json(
+      response = NextResponse.json<MeErrorResponse>(
         { success: false, error: 'User not found or inactive' },
         { status: 401 }
       );
@@ -43,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return user data (excluding sensitive information)
-    response = NextResponse.json({
+    response = NextResponse.json<MeSuccessResponse>({
       success: true,
       user: {
         id: user.id,
@@ -65,10 +91,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Auth check error:', error);
-    response = NextResponse.json(
+    return addAPISecurityHeaders(NextResponse.json<MeErrorResponse>(
       { success: false, error: 'Authentication check failed' },
       { status: 500 }
-    );
-    return addAPISecurityHeaders(response);
+    ));
   }
 }

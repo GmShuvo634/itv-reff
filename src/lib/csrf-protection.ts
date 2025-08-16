@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import { NextRequest } from 'next/server';
+import crypto from "crypto";
+import { NextRequest } from "next/server";
 
 interface CSRFTokenEntry {
   token: string;
@@ -29,26 +29,28 @@ class CSRFProtection {
   }
 
   private getClientIdentifier(request: NextRequest): string {
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-    
-    return crypto.createHash('sha256')
+    const ip =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+
+    return crypto
+      .createHash("sha256")
       .update(`${ip}_${userAgent}`)
-      .digest('hex')
+      .digest("hex")
       .substring(0, 16);
   }
 
   public generateToken(request: NextRequest): string {
     const clientId = this.getClientIdentifier(request);
-    const tokenValue = crypto.randomBytes(32).toString('hex');
+    const tokenValue = crypto.randomBytes(32).toString("hex");
     const tokenKey = `${clientId}_${tokenValue}`;
 
     this.tokens.set(tokenKey, {
       token: tokenValue,
       createdAt: Date.now(),
-      used: false
+      used: false,
     });
 
     return tokenValue;
@@ -106,13 +108,13 @@ export const csrfProtection = new CSRFProtection();
 export function validateCSRF(request: NextRequest): boolean {
   // Skip CSRF for GET, HEAD, OPTIONS requests
   const method = request.method;
-  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) {
     return true;
   }
 
   // Get CSRF token from header or body
-  const csrfToken = request.headers.get('x-csrf-token') || 
-                   request.headers.get('csrf-token');
+  const csrfToken =
+    request.headers.get("x-csrf-token") || request.headers.get("csrf-token");
 
   if (!csrfToken) {
     return false;

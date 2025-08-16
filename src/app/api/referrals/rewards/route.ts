@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/api-auth';
 import { db } from '@/lib/db';
+import { TransactionType } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       where: {
         userId: user.id,
         type: {
-          in: ['REFERRAL_REWARD_A', 'REFERRAL_REWARD_B', 'REFERRAL_REWARD_C']
+          in: [TransactionType.REFERRAL_REWARD_A, TransactionType.REFERRAL_REWARD_B, TransactionType.REFERRAL_REWARD_C]
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -72,13 +73,15 @@ export async function GET(request: NextRequest) {
     const totalRewards = {
       aLevel: summaryMap.a?.totalAmount || 0,
       bLevel: summaryMap.b?.totalAmount || 0,
-      cLevel: summaryMap.c?.totalAmount || 0
+      cLevel: summaryMap.c?.totalAmount || 0,
+      total: 0
     };
 
     const totalCounts = {
       aLevel: summaryMap.a?.count || 0,
       bLevel: summaryMap.b?.count || 0,
-      cLevel: summaryMap.c?.count || 0
+      cLevel: summaryMap.c?.count || 0,
+      total: 0
     };
 
     totalRewards.total = totalRewards.aLevel + totalRewards.bLevel + totalRewards.cLevel;

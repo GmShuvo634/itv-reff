@@ -1,10 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { SecureTokenManager } from '@/lib/token-manager';
-import { addAPISecurityHeaders } from '@/lib/security-headers';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
+import { NextRequest, NextResponse } from "next/server";
+import { SecureTokenManager } from "@/lib/token-manager";
+import { addAPISecurityHeaders } from "@/lib/security-headers";
+import { rateLimiter, RATE_LIMITS } from "@/lib/rate-limiter";
 
-export async function POST(request: NextRequest) {
-  let response = NextResponse.json({ success: false, error: 'Invalid refresh token' }, { status: 401 });
+// Type definitions for API responses
+interface RefreshSuccessResponse {
+  success: true;
+  message: string;
+}
+
+interface RefreshErrorResponse {
+  success: false;
+  error: string;
+  retryAfter?: number;
+}
+
+type RefreshResponse = RefreshSuccessResponse | RefreshErrorResponse;
+
+export async function POST(request: NextRequest): Promise<NextResponse<RefreshResponse>> {
+  let response: NextResponse<RefreshResponse>;
 
   try {
     // Apply rate limiting
@@ -15,11 +29,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!rateLimit.allowed) {
-      response = NextResponse.json(
+      response = NextResponse.json<RefreshErrorResponse>(
         {
           success: false,
-          error: 'Too many refresh attempts',
-          retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+          error: "Too many refresh attempts",
+          retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000),
         },
         { status: 429 }
       );
@@ -27,11 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Get refresh token from cookie
-    const refreshToken = request.cookies.get('refresh-token')?.value;
+    const refreshToken = request.cookies.get("refresh-token")?.value;
 
     if (!refreshToken) {
-      response = NextResponse.json(
-        { success: false, error: 'No refresh token provided' },
+      response = NextResponse.json<RefreshErrorResponse>(
+        { success: false, error: "No refresh token provided" },
         { status: 401 }
       );
       return addAPISecurityHeaders(response);
@@ -42,53 +56,50 @@ export async function POST(request: NextRequest) {
 
     if (!newTokens) {
       // Clear invalid refresh token
-      response = NextResponse.json(
-        { success: false, error: 'Invalid or expired refresh token' },
+      response = NextResponse.json<RefreshErrorResponse>(
+        { success: false, error: "Invalid or expired refresh token" },
         { status: 401 }
       );
 
-      response.cookies.delete('refresh-token');
-      response.cookies.delete('access_token');
+      response.cookies.delete("refresh-token");
+      response.cookies.delete("access_token");
 
       return addAPISecurityHeaders(response);
     }
 
     // Success response
-    response = NextResponse.json({
+    response = NextResponse.json<RefreshSuccessResponse>({
       success: true,
-      message: 'Tokens refreshed successfully'
+      message: "Tokens refreshed successfully",
     });
 
     // Set new tokens in cookies
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
-      path: '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
     };
 
     // Set new access token (short-lived)
-    response.cookies.set('access_token', newTokens.accessToken, {
+    response.cookies.set("access_token", newTokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60, // 15 minutes
     });
 
     // Set new refresh token (longer-lived)
-    response.cookies.set('refresh-token', newTokens.refreshToken, {
+    response.cookies.set("refresh-token", newTokens.refreshToken, {
       ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60, // 7 days
     });
 
     return addAPISecurityHeaders(response);
-
   } catch (error) {
-    console.error('Token refresh error:', error);
+    console.error("Token refresh error:", error);
 
-    response = NextResponse.json(
-      { success: false, error: 'Token refresh failed' },
+    return addAPISecurityHeaders(NextResponse.json<RefreshErrorResponse>(
+      { success: false, error: "Token refresh failed" },
       { status: 500 }
-    );
-
-    return addAPISecurityHeaders(response);
+    ));
   }
 }

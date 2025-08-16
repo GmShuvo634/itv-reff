@@ -8,6 +8,37 @@ import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SecureTokenManager } from '@/lib/token-manager';
 
+// Type definitions for API responses
+interface RegisterSuccessResponse {
+  success: true;
+  message: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    referralCode: string;
+    walletBalance: number;
+    totalEarnings: number;
+  };
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+  referral: {
+    applied: boolean;
+    rewardAmount: number;
+  } | null;
+}
+
+interface RegisterErrorResponse {
+  success?: false;
+  error: string;
+  field?: string;
+  details?: any;
+}
+
+type RegisterResponse = RegisterSuccessResponse | RegisterErrorResponse;
+
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -20,8 +51,8 @@ const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
-export async function POST(request: NextRequest) {
-  let response = NextResponse.json({ error: 'Registration failed' }, { status: 500 });
+export async function POST(request: NextRequest): Promise<NextResponse<RegisterResponse>> {
+  let response: NextResponse<RegisterResponse>;
 
   try {
     // Security validation
@@ -37,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     // Additional security validation
     if (!validateEmail(validatedData.email)) {
-      response = NextResponse.json(
+      response = NextResponse.json<RegisterErrorResponse>(
         { error: 'Invalid email address' },
         { status: 400 }
       );
@@ -72,10 +103,6 @@ export async function POST(request: NextRequest) {
         referralCode: validatedData.referralCode,
       });
     } catch (createError) {
-      console.log('Caught error in createUser try-catch:', createError.constructor.name, createError.code);
-      console.log('Error meta:', createError.meta);
-
-      // Handle Prisma unique constraint violations from createUser
       if (createError instanceof PrismaClientKnownRequestError && createError.code === 'P2002') {
         console.log('✅ INSIDE P2002 HANDLER');
         console.log('Handling P2002 error, meta:', createError.meta);
@@ -84,10 +111,10 @@ export async function POST(request: NextRequest) {
 
         if (fields.includes('email')) {
           console.log('Returning 409 for duplicate email');
-          response = NextResponse.json(
+          response = NextResponse.json<RegisterErrorResponse>(
             {
               success: false,
-              error: 'An account with this email address already exists. Please use a different email or try logging in.',
+              error: 'An account with this email address already exists.',
               field: 'email'
             },
             { status: 409 }
@@ -99,7 +126,7 @@ export async function POST(request: NextRequest) {
           response = NextResponse.json(
             {
               success: false,
-              error: 'An account with this phone number already exists. Please use a different phone number or try logging in.',
+              error: 'An account with this phone number already exists.',
               field: 'phone'
             },
             { status: 409 }
@@ -118,9 +145,6 @@ export async function POST(request: NextRequest) {
         );
         return addAPISecurityHeaders(response);
       }
-
-      // Re-throw other errors to be handled by outer catch
-      console.log('Re-throwing error:', createError.constructor.name);
       throw createError;
     }
 
@@ -153,7 +177,7 @@ export async function POST(request: NextRequest) {
     const tokens = SecureTokenManager.generateTokenPair(user.id, user.email);
 
     // Return success response with user data and tokens
-    response = NextResponse.json({
+    response = NextResponse.json<RegisterSuccessResponse>({
       success: true,
       message: 'User created successfully',
       user: {
@@ -200,20 +224,18 @@ export async function POST(request: NextRequest) {
     console.error('Registration error:', error);
 
     if (error instanceof z.ZodError) {
-      response = NextResponse.json(
+      return addAPISecurityHeaders(NextResponse.json<RegisterErrorResponse>(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
-      );
-      return addAPISecurityHeaders(response);
+      ));
     }
 
     // Prisma errors are now handled in the inner try-catch block
     // This catch block handles other types of errors
 
-    response = NextResponse.json(
+    return addAPISecurityHeaders(NextResponse.json<RegisterErrorResponse>(
       { error: 'Internal server error' },
       { status: 500 }
-    );
-    return addAPISecurityHeaders(response);
+    ));
   }
 }
