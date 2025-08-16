@@ -265,19 +265,6 @@ export default function DashboardOverview() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        onClick={() => refetchVideos()}
-                        disabled={videosLoading}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <RefreshCw
-                          className={`h-4 w-4 mr-2 ${
-                            videosLoading ? "animate-spin" : ""
-                          }`}
-                        />
-                        Refresh
-                      </Button>
                     </div>
 
                     {/* Videos Grid */}
