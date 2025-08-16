@@ -180,7 +180,7 @@ export async function createUser(userData: {
       data: {
         email: userData.email,
         name: userData.name,
-        phone: userData.phone || null, // Set to null if empty to avoid unique constraint issues
+        phone: userData.phone || null,
         password: hashedPassword,
         referralCode,
         referredBy,
@@ -486,7 +486,7 @@ export async function registerAction(prevState: any, formData: FormData) {
 
     if (response.ok && data.success) {
       // Set authentication cookies for automatic login after registration
-      const cookiesSet = await setAuthCookiesFromResponse(response, false); // Default to short session for new users
+      const cookiesSet = await setAuthCookiesFromResponse(response, false);
 
       if (!cookiesSet) {
         // Fallback: manually set cookie if extraction failed

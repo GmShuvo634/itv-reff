@@ -9,7 +9,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SecureTokenManager } from '@/lib/token-manager';
 
 const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   phone: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -21,7 +21,7 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  let response = NextResponse.json({ error: 'Registration failed' }, { status: 500 });
+  let response: NextResponse = NextResponse.json({ error: 'Registration failed' }, { status: 500 });
 
   try {
     // Security validation
@@ -71,15 +71,19 @@ export async function POST(request: NextRequest) {
         password: validatedData.password,
         referralCode: validatedData.referralCode,
       });
-    } catch (createError) {
-      console.log('Caught error in createUser try-catch:', createError.constructor.name, createError.code);
-      console.log('Error meta:', createError.meta);
+    } catch (err: unknown) {
+      if (err && typeof err === 'object') {
+        console.log('Caught error in createUser try-catch:', (err as any).constructor?.name, (err as any).code);
+        console.log('Error meta:', (err as any).meta);
+      } else {
+        console.log('Caught error in createUser try-catch:', err);
+      }
 
       // Handle Prisma unique constraint violations from createUser
-      if (createError instanceof PrismaClientKnownRequestError && createError.code === 'P2002') {
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
         console.log('✅ INSIDE P2002 HANDLER');
-        console.log('Handling P2002 error, meta:', createError.meta);
-        const fields = createError.meta?.target as string[] || [];
+        console.log('Handling P2002 error, meta:', err.meta);
+        const fields = (err.meta?.target as string[]) || [];
         console.log('Extracted fields:', fields);
 
         if (fields.includes('email')) {
@@ -120,8 +124,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Re-throw other errors to be handled by outer catch
-      console.log('Re-throwing error:', createError.constructor.name);
-      throw createError;
+      console.log('Re-throwing error:', err && typeof err === 'object' && 'name' in err ? (err as any).name : typeof err);
+      throw err;
     }
 
     if (!user) {

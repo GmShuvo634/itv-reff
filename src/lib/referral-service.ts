@@ -260,13 +260,19 @@ export class ReferralService {
           triggerEvent: event,
           isActive: true,
           validFrom: { lte: new Date() },
-          OR: [
-            { validUntil: null },
-            { validUntil: { gte: new Date() } }
-          ],
-          OR: [
-            { maxRewards: null },
-            { currentRewards: { lt: db.referralReward.fields.maxRewards } }
+          AND: [
+            {
+              OR: [
+                { validUntil: null },
+                { validUntil: { gte: new Date() } }
+              ]
+            },
+            {
+              OR: [
+                { maxRewards: null },
+                { currentRewards: { lt: db.referralReward.fields.maxRewards } }
+              ]
+            }
           ]
         }
       });

@@ -18,6 +18,8 @@ export default function RegisterForm({ registerAction }: RegisterFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [state, formAction, isPending] = useActionState(registerAction, { error: null });
 
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -44,7 +46,7 @@ export default function RegisterForm({ registerAction }: RegisterFormProps) {
                 {state.error}
               </div>
             )}
-            
+
             <form action={formAction} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-gray-300">Full Name</Label>
@@ -85,7 +87,7 @@ export default function RegisterForm({ registerAction }: RegisterFormProps) {
                   <Input
                     id="phone"
                     name="phone"
-                    type="tel"
+                    type="text"
                     placeholder="Enter your phone number"
                     className="bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10"
                     disabled={isPending}
@@ -160,8 +162,8 @@ export default function RegisterForm({ registerAction }: RegisterFormProps) {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-3"
                 disabled={isPending}
               >
