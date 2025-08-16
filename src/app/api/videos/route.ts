@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 import { db } from '@/lib/db';
 import { PositionService } from '@/lib/position-service';
 
@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'User Not Found!' },
+        { status: 404 }
       );
     }
 
@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
     }
 
     const tasksCompletedToday = await PositionService.getDailyTasksCompleted(user.id);
-    const dailyTaskLimit = userPosition.position.tasksPerDay;
+    const position = userPosition.position!;
+    const dailyTaskLimit = position.tasksPerDay;
+
+
 
     // If user cannot complete more tasks, return empty array
     if (!canCompleteTask.canComplete) {
@@ -59,20 +62,32 @@ export async function GET(request: NextRequest) {
 
     const watchedVideoIds = todayTasks.map(task => task.videoId);
 
-    // Get available videos that haven't been watched today
+    // Get available videos that haven't been watched today and match user's position level
     const videos = await db.video.findMany({
       where: {
         isActive: true,
         id: { notIn: watchedVideoIds },
         availableFrom: { lte: new Date() },
-        OR: [
-          { availableTo: null },
-          { availableTo: { gte: new Date() } }
+        AND: [
+          {
+            OR: [
+              { availableTo: null },
+              { availableTo: { gte: new Date() } }
+            ]
+          },
+          {
+            OR: [
+              { positionLevelId: position.id }, // Videos specifically for this position
+              { positionLevelId: null }, // Videos available to all positions
+            ]
+          }
         ]
       },
       orderBy: { createdAt: 'desc' },
       take: dailyTaskLimit - watchedVideoIds.length
     });
+
+
 
     return NextResponse.json({
       videos: videos.map(video => ({
@@ -82,16 +97,16 @@ export async function GET(request: NextRequest) {
         url: video.url,
         thumbnailUrl: video.thumbnailUrl,
         duration: video.duration,
-        rewardAmount: userPosition.position.unitPrice, // Use position-based reward
+        rewardAmount: position.unitPrice, // Use position-based reward
       })),
       dailyTaskLimit,
       tasksCompletedToday: watchedVideoIds.length,
       canCompleteTask: true,
       tasksRemaining: canCompleteTask.tasksRemaining,
       currentPosition: {
-        name: userPosition.position.name,
-        level: userPosition.position.level,
-        unitPrice: userPosition.position.unitPrice
+        name: position.name,
+        level: position.level,
+        unitPrice: position.unitPrice
       }
     });
 

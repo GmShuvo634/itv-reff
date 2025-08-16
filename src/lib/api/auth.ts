@@ -206,7 +206,8 @@ function generateReferralCode(): string {
   return result;
 }
 
-export async function getUserById(id: string): Promise<Partial<User> | null> {
+export type AuthUser = Pick<User, 'id' | 'email' | 'name' | 'phone' | 'password' | 'emailVerified' | 'phoneVerified' | 'referralCode' | 'referredBy' | 'status' | 'ipAddress' | 'deviceId' | 'walletBalance' | 'totalEarnings' | 'createdAt' | 'updatedAt'>;
+export async function getUserById(id: string): Promise<AuthUser | null> {
   try {
     return await db.user.findUnique({
       where: { id },

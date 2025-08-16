@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware, validateVideoWatchRequest } from '@/lib/api-auth';
+import { authMiddleware, validateVideoWatchRequest } from '@/lib/api/api-auth';
 import { db } from '@/lib/db';
 import { ReferralService } from '@/lib/referral-service';
 import { PositionService } from '@/lib/position-service';
@@ -21,13 +21,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const videoId = params.id;
 
     // Security validation
-    const securityValidation = await validateVideoWatchRequest(request, user.id, videoId);
-    if (!securityValidation.valid) {
-      return securityValidation.response!;
+    const isValid = validateVideoWatchRequest(request);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid request' },
+        { status: 400 }
+      );
     }
 
     // Get video details
-    const video = await db.video.findUnique({
+    const video = await db.video.findFirst({
       where: { id: videoId, isActive: true }
     });
 
@@ -82,8 +85,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       );
     }
 
-    const rewardPerVideo = userPosition.position.unitPrice;
-    const dailyLimit = userPosition.position.tasksPerDay;
+    const position = userPosition.position!;
+    const rewardPerVideo = position.unitPrice;
+    const dailyLimit = position.tasksPerDay;
 
     // Count today's watched videos
     const todayTasksCount = await PositionService.getDailyTasksCompleted(user.id);
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         watchedAt: new Date(),
         watchDuration: watchDuration,
         rewardEarned: rewardEarned,
-        positionLevel: userPosition.position.name,
+        positionLevel: position.name,
         ipAddress,
         deviceId: 'web-client',
         isVerified: true
@@ -148,13 +152,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         type: TransactionType.TASK_INCOME,
         amount: rewardEarned,
         balanceAfter: user.walletBalance + rewardEarned,
-        description: `Task reward: ${video.title} (${userPosition.position.name})`,
+        description: `Task reward: ${video.title} (${position.name})`,
         referenceId: `TASK_${videoTask.id}`,
         status: TransactionStatus.COMPLETED,
         metadata: JSON.stringify({
           videoId: videoId,
           watchDuration: watchDuration,
-          positionLevel: userPosition.position.name,
+          positionLevel: position.name,
           verificationData,
           userInteractions,
           ipAddress,
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       newBalance: user.walletBalance + rewardEarned,
       tasksCompletedToday: todayTasksCount + 1,
       dailyTaskLimit: dailyLimit,
-      positionLevel: userPosition.position.name,
+      positionLevel: position.name,
       managementBonusDistributed: bonusResult.totalBonusDistributed,
       bonusBreakdown: bonusResult.bonusBreakdown
     });

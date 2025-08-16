@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/api-auth';
+import { authMiddleware } from '@/lib/api/api-auth';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const user = await authMiddleware(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -16,9 +16,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const transactionId = params.id;
 
     const transaction = await db.walletTransaction.findFirst({
-      where: { 
+      where: {
         id: transactionId,
-        userId: user.id 
+        userId: user.id
       }
     });
 

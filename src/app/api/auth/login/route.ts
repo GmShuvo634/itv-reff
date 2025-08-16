@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import {
-  authenticateUser,
-  checkAccountLockout,
-  recordFailedLogin,
-  resetFailedLogins,
-} from "@/lib/auth";
-import { SecureTokenManager } from "@/lib/token-manager";
-import { rateLimiter, RATE_LIMITS } from "@/lib/rate-limiter";
-import { addAPISecurityHeaders } from "@/lib/security-headers";
-import { validateCSRF } from "@/lib/csrf-protection";
-import { db } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { SecureTokenManager } from '@/lib/token-manager';
+import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
+import { validateCSRF } from '@/lib/csrf-protection';
+import { db } from '@/lib/db';
+import { authenticateUser, checkAccountLockout, recordFailedLogin, resetFailedLogins } from '@/lib/api/auth';
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address").max(255),
+  password: z.string().min(1, "Password is required").max(128),
+  rememberMe: z.boolean().optional().default(false),
+});
 
 // Type definitions for API responses
 interface LoginSuccessResponse {
@@ -40,14 +41,10 @@ interface LoginErrorResponse {
 
 type LoginResponse = LoginSuccessResponse | LoginErrorResponse;
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address").max(255),
-  password: z.string().min(1, "Password is required").max(128),
-  rememberMe: z.boolean().optional().default(false),
-});
+export async function POST(request: NextRequest) {
 
-export async function POST(request: NextRequest): Promise<NextResponse<LoginResponse>> {
-  let response: NextResponse<LoginResponse>;
+
+  let response: NextResponse = NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
 
   try {
     // Apply rate limiting

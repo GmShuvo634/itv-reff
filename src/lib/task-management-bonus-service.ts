@@ -312,17 +312,7 @@ export class TaskManagementBonusService {
   static async getSubordinateActivity(
     userId: string,
     limit: number = 10
-  ): Promise<
-    Array<{
-      subordinateId: string;
-      subordinateName: string;
-      subordinateEmail: string;
-      level: ReferralLevel;
-      todayBonuses: number;
-      monthlyBonuses: number;
-      lastActivityDate: Date | null;
-    }>
-  > {
+  ): Promise<SubordinateActivity[]> {
     try {
       const hierarchy = await db.referralHierarchy.findMany({
         where: { referrerId: userId },
@@ -347,15 +337,7 @@ export class TaskManagementBonusService {
       const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const result: Array<{
-        subordinateId: string;
-        subordinateName: string;
-        subordinateEmail: string;
-        level: ReferralLevel;
-        todayBonuses: number;
-        monthlyBonuses: number;
-        lastActivityDate: Date | null;
-      }> = [];
+      const result: SubordinateActivity[] = [];
 
       for (const hierarchyEntry of hierarchy) {
         const [todayBonuses, monthlyBonuses, lastActivity] = await Promise.all([

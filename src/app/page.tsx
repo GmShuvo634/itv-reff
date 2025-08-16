@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getUserFromServer, loginAction } from "@/lib/auth";
 import LoginForm from "@/components/LoginForm";
+import { getUserFromServer, loginAction } from "@/lib/api/auth";
 
 export default async function LoginPage() {
   const user = await getUserFromServer();

@@ -1,17 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { createUser } from "@/lib/auth";
-import { validateRegistrationRequest } from "@/lib/api-auth";
-import {
-  getClientIP,
-  generateDeviceFingerprint,
-  validateEmail,
-  validatePhone,
-} from "@/lib/security";
-import { ReferralService } from "@/lib/referral-service";
-import { addAPISecurityHeaders } from "@/lib/security-headers";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { SecureTokenManager } from "@/lib/token-manager";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { validateRegistrationRequest } from '@/lib/api/api-auth';
+import { getClientIP, generateDeviceFingerprint, validateEmail, validatePhone } from '@/lib/security';
+import { ReferralService } from '@/lib/referral-service';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { SecureTokenManager } from '@/lib/token-manager';
+import { createUser } from '@/lib/api/auth';
 
 // Type definitions for API responses
 interface RegisterSuccessResponse {
@@ -44,24 +39,21 @@ interface RegisterErrorResponse {
 
 type RegisterResponse = RegisterSuccessResponse | RegisterErrorResponse;
 
-const registerSchema = z
-  .object({
-    email: z.email("Invalid email address"),
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    phone: z.string().optional(),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string(),
-    referralCode: z.string().optional(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
 
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<RegisterResponse>> {
-  let response: NextResponse<RegisterResponse>;
+const registerSchema = z.object({
+  email: z.email('Invalid email address'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+  referralCode: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export async function POST(request: NextRequest) {
+  let response: NextResponse = NextResponse.json({ error: 'Registration failed' }, { status: 500 });
 
   try {
     // Security validation
@@ -115,13 +107,20 @@ export async function POST(
         password: validatedData.password,
         referralCode: validatedData.referralCode,
       });
-    } catch (createError) {
-      if (
-        createError instanceof PrismaClientKnownRequestError &&
-        createError.code === "P2002"
-      ) {
-        const fields = (createError.meta?.target as string[]) || [];
-        console.log("Extracted fields:", fields);
+    } catch (err: unknown) {
+      if (err && typeof err === 'object') {
+        console.log('Caught error in createUser try-catch:', (err as any).constructor?.name, (err as any).code);
+        console.log('Error meta:', (err as any).meta);
+      } else {
+        console.log('Caught error in createUser try-catch:', err);
+      }
+
+      // Handle Prisma unique constraint violations from createUser
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        console.log('✅ INSIDE P2002 HANDLER');
+        console.log('Handling P2002 error, meta:', err.meta);
+        const fields = (err.meta?.target as string[]) || [];
+        console.log('Extracted fields:', fields);
 
         if (fields.includes("email")) {
           console.log("Returning 409 for duplicate email");
@@ -160,7 +159,10 @@ export async function POST(
         );
         return addAPISecurityHeaders(response);
       }
-      throw createError;
+
+      // Re-throw other errors to be handled by outer catch
+      console.log('Re-throwing error:', err && typeof err === 'object' && 'name' in err ? (err as any).name : typeof err);
+      throw err;
     }
 
     if (!user) {

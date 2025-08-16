@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { authMiddleware } from "@/lib/api-auth";
-import { db } from "@/lib/db";
-import { TransactionType, TransactionStatus } from "@prisma/client";
-import { addAPISecurityHeaders } from "@/lib/security-headers";
+import { NextRequest, NextResponse } from 'next/server';
+import { authMiddleware } from '@/lib/api/api-auth';
+import { db } from '@/lib/db';
+import { addAPISecurityHeaders } from '@/lib/security-headers';
+import { TransactionStatus, TransactionType } from '@prisma/client';
 
 // Type definitions for API responses
 interface SubscribeSuccessResponse {

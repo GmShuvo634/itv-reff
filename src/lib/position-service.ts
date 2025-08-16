@@ -14,7 +14,7 @@ export interface PositionUpgradeResult {
 }
 
 export class PositionService {
-  
+
   static async getAllPositions(): Promise<PositionLevel[]> {
     return await db.positionLevel.findMany({
       where: { isActive: true },
@@ -57,11 +57,13 @@ export class PositionService {
       include: { currentPosition: true }
     });
 
+
+
     if (!user) return null;
 
     const now = new Date();
     const isExpired = user.positionEndDate ? now > user.positionEndDate : false;
-    const daysRemaining = user.positionEndDate 
+    const daysRemaining = user.positionEndDate
       ? Math.max(0, Math.ceil((user.positionEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
       : 0;
 
@@ -74,8 +76,8 @@ export class PositionService {
   }
 
   static async upgradePosition(
-    userId: string, 
-    targetPositionId: string, 
+    userId: string,
+    targetPositionId: string,
     depositAmount: number
   ): Promise<PositionUpgradeResult> {
     try {
@@ -98,26 +100,26 @@ export class PositionService {
 
       // Validate deposit amount
       if (depositAmount < targetPosition.deposit) {
-        return { 
-          success: false, 
-          message: `Insufficient deposit. Required: ${targetPosition.deposit} PKR` 
+        return {
+          success: false,
+          message: `Insufficient deposit. Required: ${targetPosition.deposit} PKR`
         };
       }
 
       // Check if user can upgrade (must be sequential or same level)
       const currentLevel = user.currentPosition?.level || 0;
       if (targetPosition.level > currentLevel + 1) {
-        return { 
-          success: false, 
-          message: 'Cannot skip position levels. Must upgrade sequentially.' 
+        return {
+          success: false,
+          message: 'Cannot skip position levels. Must upgrade sequentially.'
         };
       }
 
       // Check wallet balance for deposit
       if (user.walletBalance < targetPosition.deposit) {
-        return { 
-          success: false, 
-          message: 'Insufficient wallet balance for deposit' 
+        return {
+          success: false,
+          message: 'Insufficient wallet balance for deposit'
         };
       }
 
@@ -159,8 +161,8 @@ export class PositionService {
         });
       });
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: `Successfully upgraded to ${targetPosition.name}`,
         newPosition: targetPosition
       };
@@ -173,7 +175,7 @@ export class PositionService {
 
   static async checkAndExpirePositions(): Promise<void> {
     const now = new Date();
-    
+
     const expiredUsers = await db.user.findMany({
       where: {
         positionEndDate: { lt: now },
@@ -235,7 +237,7 @@ export class PositionService {
     tasksRemaining?: number;
   }> {
     const userPosition = await this.getUserCurrentPosition(userId);
-    
+
     if (!userPosition || !userPosition.position) {
       return { canComplete: false, reason: 'No active position found' };
     }
