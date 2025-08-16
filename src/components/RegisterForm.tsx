@@ -87,7 +87,7 @@ export default function RegisterForm({ registerAction }: RegisterFormProps) {
                   <Input
                     id="phone"
                     name="phone"
-                    type="text"
+                    type="tel"
                     placeholder="Enter your phone number"
                     className="bg-white/10 border-white/20 text-white placeholder-gray-400 pl-10"
                     disabled={isPending}

@@ -7,7 +7,7 @@ import { TaskManagementBonusService } from '@/lib/task-management-bonus-service'
 import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 
 export async function GET(request: NextRequest) {
-  let response = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  let response: NextResponse<any> = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
 
   try {
     const user = await authMiddleware(request);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's current position
-    const userPosition = await PositionService.getUserCurrentPosition(user.id);
+    const userPosition = await PositionService.getUserCurrentPosition(user.id as string);
 
     if (!userPosition) {
       response = NextResponse.json(
@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get today's task completion data
-    const tasksCompletedToday = await PositionService.getDailyTasksCompleted(user.id);
-    const canCompleteTask = await PositionService.canCompleteTask(user.id);
+    const tasksCompletedToday = await PositionService.getDailyTasksCompleted(user.id as string);
+    const canCompleteTask = await PositionService.canCompleteTask(user.id as string);
 
     // Get today's earnings from tasks
     const today = new Date();
@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
     const taskEarningsToday = todayTasks.reduce((sum, task) => sum + task.rewardEarned, 0);
 
     // Get management bonus stats
-    const managementBonusStats = await TaskManagementBonusService.getManagementBonusStats(user.id);
+    const managementBonusStats = await TaskManagementBonusService.getManagementBonusStats(user.id as string);
 
     // Get referral hierarchy stats
-    const referralHierarchyStats = await EnhancedReferralService.getReferralHierarchyStats(user.id);
+    const referralHierarchyStats = await EnhancedReferralService.getReferralHierarchyStats(user.id as string);
 
     // Get recent transactions with income stream breakdown
     const recentTransactions = await db.walletTransaction.findMany({
