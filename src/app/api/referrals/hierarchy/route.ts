@@ -54,10 +54,48 @@ export async function GET(request: NextRequest) {
       cLevel: subordinateDetails.filter(s => s.level === 'C_LEVEL')
     };
 
+    // Calculate team performance metrics
+    const teamMetrics = {
+      totalTeamSize: subordinateDetails.length,
+      activeMembers: subordinateDetails.filter(s => s.isActive).length,
+      totalTeamEarnings: subordinateDetails.reduce((sum, s) => sum + (s.totalEarnings || 0), 0),
+      averageEarningsPerMember: subordinateDetails.length > 0
+        ? subordinateDetails.reduce((sum, s) => sum + (s.totalEarnings || 0), 0) / subordinateDetails.length
+        : 0
+    };
+
+    // Get position distribution
+    const positionDistribution = subordinateDetails.reduce((acc, s) => {
+      const positionName = s.currentPosition?.name || 'Intern';
+      acc[positionName] = (acc[positionName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate growth metrics (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentGrowth = subordinates.filter(s =>
+      new Date(s.createdAt) >= thirtyDaysAgo
+    );
+
+    const growthMetrics = {
+      aLevel: recentGrowth.filter(s => s.level === 'A_LEVEL').length,
+      bLevel: recentGrowth.filter(s => s.level === 'B_LEVEL').length,
+      cLevel: recentGrowth.filter(s => s.level === 'C_LEVEL').length,
+      total: recentGrowth.length
+    };
+
     return NextResponse.json({
-      hierarchyStats,
-      subordinatesByLevel,
-      totalSubordinates: subordinateDetails.length
+      success: true,
+      data: {
+        hierarchyStats,
+        subordinatesByLevel,
+        teamMetrics,
+        positionDistribution,
+        growthMetrics,
+        totalSubordinates: subordinateDetails.length
+      }
     });
 
   } catch (error) {
