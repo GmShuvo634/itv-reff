@@ -176,6 +176,20 @@ export async function createUser(userData: {
       }
     }
 
+    // Get the Intern position for new users
+    const internPosition = await db.positionLevel.findUnique({
+      where: { name: 'Intern' }
+    });
+
+    if (!internPosition) {
+      throw new Error('Intern position not found. Please ensure position levels are seeded.');
+    }
+
+    // Calculate position validity dates
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(startDate.getDate() + internPosition.validityDays);
+
     const user = await db.user.create({
       data: {
         email: userData.email,
@@ -186,6 +200,12 @@ export async function createUser(userData: {
         referredBy,
         ipAddress: '', // Will be set from request
         deviceId: '', // Will be set from request
+        // Assign Intern position to new users
+        currentPositionId: internPosition.id,
+        positionStartDate: startDate,
+        positionEndDate: endDate,
+        isIntern: true,
+        depositPaid: 0,
       },
     });
 

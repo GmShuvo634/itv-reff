@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { validateRegistrationRequest } from '@/lib/api/api-auth';
 import { getClientIP, generateDeviceFingerprint, validateEmail, validatePhone } from '@/lib/security';
 import { ReferralService } from '@/lib/referral-service';
+import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SecureTokenManager } from '@/lib/token-manager';
@@ -150,6 +151,15 @@ export async function POST(request: NextRequest) {
 
       if (referralResult.success) {
         referralReward = referralResult.rewardAmount || 0;
+      }
+
+      // Build referral hierarchy for the new user
+      try {
+        await EnhancedReferralService.buildReferralHierarchy(user.id);
+        console.log(`✅ Referral hierarchy built for user: ${user.email}`);
+      } catch (error) {
+        console.error(`❌ Failed to build referral hierarchy for user ${user.email}:`, error);
+        // Don't fail registration if hierarchy building fails
       }
     }
 
