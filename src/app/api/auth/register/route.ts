@@ -8,38 +8,6 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SecureTokenManager } from '@/lib/token-manager';
 import { createUser } from '@/lib/api/auth';
 
-// Type definitions for API responses
-interface RegisterSuccessResponse {
-  success: true;
-  message: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    referralCode: string;
-    walletBalance: number;
-    totalEarnings: number;
-  };
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-  };
-  referral: {
-    applied: boolean;
-    rewardAmount: number;
-  } | null;
-}
-
-interface RegisterErrorResponse {
-  success?: false;
-  error: string;
-  field?: string;
-  details?: any;
-}
-
-type RegisterResponse = RegisterSuccessResponse | RegisterErrorResponse;
-
-
 const registerSchema = z.object({
   email: z.email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -69,23 +37,19 @@ export async function POST(request: NextRequest) {
 
     // Additional security validation
     if (!validateEmail(validatedData.email)) {
-      response = NextResponse.json<RegisterErrorResponse>(
-        { error: "Invalid email address" },
+      response = NextResponse.json(
+        { error: 'Invalid email address' },
         { status: 400 }
       );
       return addAPISecurityHeaders(response);
     }
 
-    if (
-      validatedData.phone &&
-      validatedData.phone.trim() &&
-      !validatePhone(validatedData.phone)
-    ) {
+    if (validatedData.phone && validatedData.phone.trim() && !validatePhone(validatedData.phone)) {
       response = NextResponse.json(
         {
           success: false,
-          error: "Invalid phone number format",
-          field: "phone",
+          error: 'Invalid phone number format',
+          field: 'phone'
         },
         { status: 400 }
       );
@@ -95,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Get client IP and device info for security tracking
     const ipAddress = getClientIP(request);
     const deviceFingerprint = generateDeviceFingerprint(request);
-    const userAgent = request.headers.get("user-agent") || "unknown";
+    const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Create user with security information
     let user;
@@ -122,25 +86,25 @@ export async function POST(request: NextRequest) {
         const fields = (err.meta?.target as string[]) || [];
         console.log('Extracted fields:', fields);
 
-        if (fields.includes("email")) {
-          console.log("Returning 409 for duplicate email");
-          response = NextResponse.json<RegisterErrorResponse>(
+        if (fields.includes('email')) {
+          console.log('Returning 409 for duplicate email');
+          response = NextResponse.json(
             {
               success: false,
-              error: "An account with this email address already exists.",
-              field: "email",
+              error: 'An account with this email address already exists. Please use a different email or try logging in.',
+              field: 'email'
             },
             { status: 409 }
           );
           return addAPISecurityHeaders(response);
         }
 
-        if (fields.includes("phone")) {
+        if (fields.includes('phone')) {
           response = NextResponse.json(
             {
               success: false,
-              error: "An account with this phone number already exists.",
-              field: "phone",
+              error: 'An account with this phone number already exists. Please use a different phone number or try logging in.',
+              field: 'phone'
             },
             { status: 409 }
           );
@@ -151,9 +115,8 @@ export async function POST(request: NextRequest) {
         response = NextResponse.json(
           {
             success: false,
-            error:
-              "An account with this information already exists. Please check your details and try again.",
-            fields: fields,
+            error: 'An account with this information already exists. Please check your details and try again.',
+            fields: fields
           },
           { status: 409 }
         );
@@ -169,7 +132,7 @@ export async function POST(request: NextRequest) {
       response = NextResponse.json(
         {
           success: false,
-          error: "Failed to create user account. Please try again.",
+          error: 'Failed to create user account. Please try again.'
         },
         { status: 500 }
       );
@@ -194,9 +157,9 @@ export async function POST(request: NextRequest) {
     const tokens = SecureTokenManager.generateTokenPair(user.id, user.email);
 
     // Return success response with user data and tokens
-    response = NextResponse.json<RegisterSuccessResponse>({
+    response = NextResponse.json({
       success: true,
-      message: "User created successfully",
+      message: 'User created successfully',
       user: {
         id: user.id,
         email: user.email,
@@ -209,55 +172,52 @@ export async function POST(request: NextRequest) {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
       },
-      referral: validatedData.referralCode
-        ? {
-            applied: true,
-            rewardAmount: referralReward,
-          }
-        : null,
+      referral: validatedData.referralCode ? {
+        applied: true,
+        rewardAmount: referralReward
+      } : null
     });
 
     // Set secure cookies for automatic login
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+      path: '/',
     };
 
     // Set access token (short-lived)
-    response.cookies.set("access_token", tokens.accessToken, {
+    response.cookies.set('access_token', tokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60, // 15 minutes
     });
 
     // Set refresh token (longer-lived)
-    response.cookies.set("refresh-token", tokens.refreshToken, {
+    response.cookies.set('refresh-token', tokens.refreshToken, {
       ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60, // 7 days
     });
 
     return addAPISecurityHeaders(response);
+
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error('Registration error:', error);
 
     if (error instanceof z.ZodError) {
-      return addAPISecurityHeaders(
-        NextResponse.json<RegisterErrorResponse>(
-          { error: "Validation failed", details: error.issues },
-          { status: 400 }
-        )
+      response = NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 }
       );
+      return addAPISecurityHeaders(response);
     }
 
     // Prisma errors are now handled in the inner try-catch block
     // This catch block handles other types of errors
 
-    return addAPISecurityHeaders(
-      NextResponse.json<RegisterErrorResponse>(
-        { error: "Internal server error" },
-        { status: 500 }
-      )
+    response = NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
     );
+    return addAPISecurityHeaders(response);
   }
 }

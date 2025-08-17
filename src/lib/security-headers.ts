@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export function addSecurityHeaders<T>(response: NextResponse<T>): NextResponse<T> {
+export function addSecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
@@ -72,7 +72,7 @@ export function addSecurityHeaders<T>(response: NextResponse<T>): NextResponse<T
   return response;
 }
 
-export function addAPISecurityHeaders<T>(response: NextResponse<T>): NextResponse<T> {
+export function addAPISecurityHeaders(response: NextResponse): NextResponse {
   // API-specific security headers
   const apiHeaders = {
     'X-Content-Type-Options': 'nosniff',
@@ -93,7 +93,7 @@ export function addAPISecurityHeaders<T>(response: NextResponse<T>): NextRespons
   return response;
 }
 
-export function addCORSHeaders<T>(response: NextResponse<T>, origin?: string): NextResponse<T> {
+export function addCORSHeaders(response: NextResponse, origin?: string): NextResponse {
   const allowedOrigins = [
     'http://localhost:3000',
     'https://yourdomain.com' // Add your production domain

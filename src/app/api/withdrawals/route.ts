@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/api/api-auth';
 import { db } from '@/lib/db';
-import { TransactionType, TransactionStatus, WithdrawalStatus } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
     const where: any = { userId: user.id };
 
     if (status && ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED'].includes(status)) {
-      where.status = status as WithdrawalStatus;
+      where.status = status;
     }
 
     // Get withdrawal requests with pagination
@@ -145,7 +144,7 @@ export async function POST(request: NextRequest) {
       where: {
         userId: user.id,
         createdAt: { gte: startOfWeek },
-        status: { in: [WithdrawalStatus.APPROVED, WithdrawalStatus.PROCESSED] }
+        status: { in: ['APPROVED', 'PROCESSED'] }
       },
       _sum: { amount: true }
     });
@@ -167,7 +166,7 @@ export async function POST(request: NextRequest) {
         amount: withdrawalAmount,
         paymentMethod,
         paymentDetails: JSON.stringify(paymentDetails),
-        status: WithdrawalStatus.PENDING
+        status: 'PENDING'
       }
     });
 
@@ -175,12 +174,12 @@ export async function POST(request: NextRequest) {
     await db.walletTransaction.create({
       data: {
         userId: user.id,
-        type: TransactionType.DEBIT,
+        type: 'DEBIT',
         amount: withdrawalAmount,
         balanceAfter: user.walletBalance - withdrawalAmount,
         description: `Withdrawal request: ${paymentMethod}`,
         referenceId: `WITHDRAWAL_${withdrawal.id}`,
-        status: TransactionStatus.PENDING,
+        status: 'PENDING',
         metadata: JSON.stringify({
           withdrawalId: withdrawal.id,
           paymentMethod,

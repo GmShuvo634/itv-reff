@@ -4,61 +4,13 @@ import { ReferralService } from '@/lib/referral-service';
 import { addAPISecurityHeaders } from '@/lib/security-headers';
 import { db } from '@/lib/db';
 
-// Type definitions for API responses
-interface ReferralStatsSuccessResponse {
-  success: boolean;
-  referralCode: string;
-  referralLink: string;
-  socialLinks: Record<string, string>;
-  stats: {
-    totalReferrals: number;
-    registeredReferrals: number;
-    qualifiedReferrals: number;
-    rewardedReferrals: number;
-    totalEarnings: number;
-    monthlyReferrals: number;
-    activities: Array<{
-      id: string;
-      status: string;
-      source: string;
-      rewardAmount: number;
-      createdAt: string;
-      rewardPaidAt: string | null;
-    }>;
-  };
-  totalReferrals: number;
-  activeReferrals: number;
-  totalReferralEarnings: number;
-  monthlyReferrals: number;
-  topReferrals: Array<any>;
-  referrals: Array<{
-    id: string;
-    name: string;
-    email: string;
-    earnings: number;
-    balance: number;
-    joinedAt: string;
-    isActive: boolean;
-  }>;
-}
-
-interface ReferralStatsErrorResponse {
-  error: string;
-}
-
-type ReferralStatsResponse = ReferralStatsSuccessResponse | ReferralStatsErrorResponse;
-
-export async function GET(request: NextRequest): Promise<NextResponse<ReferralStatsResponse>> {
-  let response: NextResponse<ReferralStatsResponse>;
+export async function GET(request: NextRequest) {
+  let response = NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
   try {
     // Authenticate user
     const user = await authMiddleware(request);
     if (!user || !user.id) {
-      response = NextResponse.json<ReferralStatsErrorResponse>(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
       return addAPISecurityHeaders(response);
     }
 
@@ -107,7 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReferralSt
       activities: []
     };
 
-    response = NextResponse.json<ReferralStatsSuccessResponse>({
+    response = NextResponse.json({
       success: true,
       referralCode: user.referralCode,
       referralLink: ReferralService.generateReferralLink(user.referralCode || ''),
@@ -145,9 +97,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReferralSt
 
   } catch (error) {
     console.error('Get referral stats error:', error);
-    return addAPISecurityHeaders(NextResponse.json<ReferralStatsErrorResponse>(
+    response = NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    ));
+    );
+    return addAPISecurityHeaders(response);
   }
 }

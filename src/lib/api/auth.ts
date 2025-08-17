@@ -263,6 +263,7 @@ export async function getUserFromServer() {
   }
 }
 
+// Helper function to validate redirect paths (prevent open redirect attacks)
 function validateRedirectPath(path: string): string {
   // Default safe path
   const defaultPath = "/dashboard";

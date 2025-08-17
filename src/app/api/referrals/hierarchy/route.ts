@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get referral hierarchy stats
-    const hierarchyStats = await EnhancedReferralService.getReferralHierarchyStats(user.id as string);
+    const hierarchyStats = await EnhancedReferralService.getReferralHierarchyStats(user.id);
 
     // Get detailed subordinate information
     const subordinates = await db.referralHierarchy.findMany({

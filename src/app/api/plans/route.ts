@@ -1,50 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { addAPISecurityHeaders } from '@/lib/security-headers';
 
-// Type definitions for API responses
-interface PlansSuccessResponse {
-  plans: Array<{
-    id: string;
-    name: string;
-    description: string | null;
-    price: number;
-    durationDays: number;
-    dailyVideoLimit: number;
-    rewardPerVideo: number;
-    referralBonus: number;
-  }>;
-}
-
-interface PlansErrorResponse {
-  error: string;
-}
-
-interface CreatePlanSuccessResponse {
-  message: string;
-  plan: {
-    id: string;
-    name: string;
-    description: string | null;
-    price: number;
-    durationDays: number;
-    dailyVideoLimit: number;
-    rewardPerVideo: number;
-    referralBonus: number;
-  };
-}
-
-type PlansResponse = PlansSuccessResponse | PlansErrorResponse;
-type CreatePlanResponse = CreatePlanSuccessResponse | PlansErrorResponse;
-
-export async function GET(request: NextRequest): Promise<NextResponse<PlansResponse>> {
+export async function GET(request: NextRequest) {
   try {
     const plans = await db.plan.findMany({
       where: { isActive: true },
       orderBy: { price: 'asc' }
     });
 
-    return addAPISecurityHeaders(NextResponse.json<PlansSuccessResponse>({
+    return NextResponse.json({
       plans: plans.map(plan => ({
         id: plan.id,
         name: plan.name,
@@ -55,28 +19,28 @@ export async function GET(request: NextRequest): Promise<NextResponse<PlansRespo
         rewardPerVideo: plan.rewardPerVideo,
         referralBonus: plan.referralBonus,
       }))
-    }));
+    });
 
   } catch (error) {
     console.error('Get plans error:', error);
-    return addAPISecurityHeaders(NextResponse.json<PlansErrorResponse>(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    ));
+    );
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<CreatePlanResponse>> {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, description, price, durationDays, dailyVideoLimit, rewardPerVideo, referralBonus } = body;
 
     // Validate input
     if (!name || !price || !durationDays || !dailyVideoLimit || !rewardPerVideo) {
-      return addAPISecurityHeaders(NextResponse.json<PlansErrorResponse>(
+      return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
-      ));
+      );
     }
 
     const plan = await db.plan.create({
@@ -91,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreatePla
       }
     });
 
-    return addAPISecurityHeaders(NextResponse.json<CreatePlanSuccessResponse>({
+    return NextResponse.json({
       message: 'Plan created successfully',
       plan: {
         id: plan.id,
@@ -103,13 +67,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreatePla
         rewardPerVideo: plan.rewardPerVideo,
         referralBonus: plan.referralBonus,
       }
-    }));
+    });
 
   } catch (error) {
     console.error('Create plan error:', error);
-    return addAPISecurityHeaders(NextResponse.json<PlansErrorResponse>(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    ));
+    );
   }
 }

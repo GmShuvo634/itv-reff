@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ReferralLevel, TransactionType, TransactionStatus } from '@prisma/client';
+import { ReferralLevel } from '@prisma/client';
 
 export interface ReferralRewardRates {
   P1: { A: 312, B: 117, C: 39 };
@@ -225,8 +225,8 @@ export class EnhancedReferralService {
     referrerPositionName: string,
     newUserPositionName: string
   ): Promise<void> {
-    const transactionType = level === 'A_LEVEL' ? TransactionType.REFERRAL_REWARD_A :
-                           level === 'B_LEVEL' ? TransactionType.REFERRAL_REWARD_B : TransactionType.REFERRAL_REWARD_C;
+    const transactionType = level === 'A_LEVEL' ? 'REFERRAL_REWARD_A' :
+                           level === 'B_LEVEL' ? 'REFERRAL_REWARD_B' : 'REFERRAL_REWARD_C';
 
     await db.$transaction(async (tx) => {
       // Update referrer's balance
@@ -253,7 +253,7 @@ export class EnhancedReferralService {
           balanceAfter: updatedReferrer!.walletBalance,
           description: `${level.replace('_', '-')} Referral Reward: New ${newUserPositionName} member`,
           referenceId: `REFERRAL_${level}_${referredUserId}_${Date.now()}`,
-          status: TransactionStatus.COMPLETED,
+          status: 'COMPLETED',
           metadata: JSON.stringify({
             referredUserId,
             hierarchyLevel: level,
@@ -291,7 +291,7 @@ export class EnhancedReferralService {
           by: ['type'],
           where: {
             userId,
-            type: { in: [TransactionType.REFERRAL_REWARD_A, TransactionType.REFERRAL_REWARD_B, TransactionType.REFERRAL_REWARD_C] }
+            type: { in: ['REFERRAL_REWARD_A', 'REFERRAL_REWARD_B', 'REFERRAL_REWARD_C'] }
           },
           _sum: { amount: true }
         })
@@ -300,11 +300,11 @@ export class EnhancedReferralService {
       const earningsMap = earnings.reduce((acc, item) => {
         acc[item.type] = item._sum.amount || 0;
         return acc;
-      }, {} as Record<TransactionType, number>);
+      }, {} as Record<string, number>);
 
-      const aLevelEarnings = earningsMap[TransactionType.REFERRAL_REWARD_A] || 0;
-      const bLevelEarnings = earningsMap[TransactionType.REFERRAL_REWARD_B] || 0;
-      const cLevelEarnings = earningsMap[TransactionType.REFERRAL_REWARD_C] || 0;
+      const aLevelEarnings = earningsMap['REFERRAL_REWARD_A'] || 0;
+      const bLevelEarnings = earningsMap['REFERRAL_REWARD_B'] || 0;
+      const cLevelEarnings = earningsMap['REFERRAL_REWARD_C'] || 0;
 
       return {
         aLevelCount: aLevelUsers,
