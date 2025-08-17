@@ -121,5 +121,9 @@ export const VideoPlayerContent = ({
   className,
   ...props
 }: VideoPlayerContentProps) => (
-  <video className={cn('mt-0 mb-0', className)} {...props} />
+  <video
+    className={cn('w-full h-full object-contain', className)}
+    controls={false}
+    {...props}
+  />
 );

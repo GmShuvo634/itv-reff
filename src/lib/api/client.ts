@@ -60,12 +60,12 @@ apiClient.interceptors.request.use(
         .split('; ')
         .find(row => row.startsWith('access_token='))
         ?.split('=')[1];
-      
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
-    
+
     return config;
   },
   (error) => {
@@ -109,6 +109,18 @@ export const videosApi = {
   getVideos: async (): Promise<VideosResponse> => {
     const response = await apiClient.get<VideosResponse>('/api/videos');
     return response.data;
+  },
+
+  getVideoById: async (videoId: string): Promise<Video | null> => {
+    try {
+      const response = await apiClient.get<Video>(`/api/videos/${videoId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   watchVideo: async (videoId: string, data: WatchVideoRequest): Promise<WatchVideoResponse> => {
