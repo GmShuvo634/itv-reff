@@ -56,12 +56,12 @@ const videoData = [
   {
     title: 'Digital Marketing Mastery',
     description: 'Learn the fundamentals of digital marketing and online business strategies.',
-    duration: 300, // 5 minutes
+    duration: 60, // 1 minutes
   },
   {
     title: 'Cryptocurrency Basics',
     description: 'Understanding the basics of cryptocurrency and blockchain technology.',
-    duration: 280, // 4 minutes 40 seconds
+    duration: 887, // 14 minutes 47 seconds
   },
   {
     title: 'Investment Strategies',
@@ -86,7 +86,7 @@ const videoData = [
   {
     title: 'Passive Income Streams',
     description: 'Create multiple passive income streams for financial security.',
-    duration: 310, // 5 minutes 10 seconds
+    duration: 887, // 14 minutes 47 seconds
   },
   {
     title: 'Trading Psychology',
@@ -111,7 +111,7 @@ const videoData = [
   {
     title: 'Portfolio Diversification',
     description: 'Build a diversified investment portfolio for maximum returns.',
-    duration: 280, // 4 minutes 40 seconds
+    duration: 15, // 15 seconds
   },
   {
     title: 'Economic Trends Analysis',

@@ -63,12 +63,15 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
     canComplete,
     minimumWatchPercentage,
     resetProgress,
+    watchedSegments,
+    setWatchedSegments,
   } = useVideoProgress(videoId);
 
   const [isCompleted, setIsCompleted] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [currentWatchSession, setCurrentWatchSession] = useState<{start: number, lastUpdate: number} | null>(null);
 
   useEffect(() => {
     if (video && !progressLoaded) {
@@ -78,6 +81,9 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
         duration: video.duration
       });
 
+      // Set the duration from video data immediately
+      setDuration(video.duration);
+
       const savedProgress = loadProgress();
       if (savedProgress && videoRef.current) {
         setWatchDuration(savedProgress.watchDuration);
@@ -86,7 +92,7 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
       }
       setProgressLoaded(true);
     }
-  }, [video, progressLoaded, loadProgress, setWatchDuration, addInteraction]);
+  }, [video, progressLoaded, loadProgress, setWatchDuration, setDuration, addInteraction]);
 
   useEffect(() => {
     if (hasStarted && currentTime > 0) {
@@ -104,9 +110,13 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
     if (!video) return;
 
     const handleLoadedMetadata = () => {
-      setDuration(video.duration);
-      addInteraction('video_loaded', { duration: video.duration });
-      console.log('Video loaded:', { duration: video.duration, src: video.src });
+      const videoDuration = video.duration;
+      setDuration(videoDuration);
+      addInteraction('video_loaded', { duration: videoDuration });
+      console.log('Video loaded:', { duration: videoDuration, src: video.src });
+
+      // Debug log for progress tracking
+      console.log('Duration set for progress tracking:', videoDuration);
     };
 
     const handleLoadedData = () => {
@@ -124,7 +134,57 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
     };
 
     const handleTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
+      const videoCurrentTime = video.currentTime;
+      setCurrentTime(videoCurrentTime);
+
+      // Update current watch session if playing
+      if (isPlaying && currentWatchSession) {
+        const now = Date.now();
+        const timeDiff = (now - currentWatchSession.lastUpdate) / 1000;
+
+        // Only update if less than 2 seconds have passed (to handle seeks)
+        if (timeDiff < 2) {
+          setCurrentWatchSession({
+            start: currentWatchSession.start,
+            lastUpdate: now
+          });
+
+          // Add this segment to watched segments
+          const segmentEnd = videoCurrentTime;
+          const segmentStart = Math.max(currentWatchSession.start, videoCurrentTime - timeDiff);
+
+          if (segmentEnd > segmentStart) {
+            setWatchedSegments(prev => {
+              const newSegment = { start: segmentStart, end: segmentEnd };
+              const updated = [...prev];
+
+              // Check if this segment overlaps with existing ones
+              const overlappingIndex = updated.findIndex(seg =>
+                (newSegment.start <= seg.end && newSegment.end >= seg.start)
+              );
+
+              if (overlappingIndex >= 0) {
+                // Merge with existing segment
+                updated[overlappingIndex] = {
+                  start: Math.min(updated[overlappingIndex].start, newSegment.start),
+                  end: Math.max(updated[overlappingIndex].end, newSegment.end)
+                };
+              } else {
+                // Add new segment
+                updated.push(newSegment);
+              }
+
+              return updated.sort((a, b) => a.start - b.start);
+            });
+          }
+        } else {
+          // Time jump detected (seek), start new session
+          setCurrentWatchSession({
+            start: videoCurrentTime,
+            lastUpdate: now
+          });
+        }
+      }
     };
 
     const handlePlay = () => {
@@ -132,19 +192,57 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
       setHasStarted(true);
       addInteraction('play', { currentTime: video.currentTime });
 
+      // Start new watch session
+      setCurrentWatchSession({
+        start: video.currentTime,
+        lastUpdate: Date.now()
+      });
+
+      // Clear any existing timer (legacy)
       if (watchTimerRef.current) {
         clearInterval(watchTimerRef.current);
+        watchTimerRef.current = null;
       }
-
-      watchTimerRef.current = setInterval(() => {
-        setWatchDuration(prev => prev + 1);
-      }, 1000);
     };
 
     const handlePause = () => {
       setIsPlaying(false);
       addInteraction('pause', { currentTime: video.currentTime });
 
+      // End current watch session
+      if (currentWatchSession) {
+        const segmentEnd = video.currentTime;
+        const segmentStart = currentWatchSession.start;
+
+        if (segmentEnd > segmentStart) {
+          setWatchedSegments(prev => {
+            const newSegment = { start: segmentStart, end: segmentEnd };
+            const updated = [...prev];
+
+            // Check if this segment overlaps with existing ones
+            const overlappingIndex = updated.findIndex(seg =>
+              (newSegment.start <= seg.end && newSegment.end >= seg.start)
+            );
+
+            if (overlappingIndex >= 0) {
+              // Merge with existing segment
+              updated[overlappingIndex] = {
+                start: Math.min(updated[overlappingIndex].start, newSegment.start),
+                end: Math.max(updated[overlappingIndex].end, newSegment.end)
+              };
+            } else {
+              // Add new segment
+              updated.push(newSegment);
+            }
+
+            return updated.sort((a, b) => a.start - b.start);
+          });
+        }
+
+        setCurrentWatchSession(null);
+      }
+
+      // Clear any existing timer (legacy)
       if (watchTimerRef.current) {
         clearInterval(watchTimerRef.current);
         watchTimerRef.current = null;
@@ -156,6 +254,14 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
         from: currentTime,
         to: video.currentTime
       });
+
+      // Reset watch session after seek
+      if (isPlaying) {
+        setCurrentWatchSession({
+          start: video.currentTime,
+          lastUpdate: Date.now()
+        });
+      }
     };
 
     const handleVolumeChange = () => {
@@ -168,6 +274,39 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
     const handleEnded = () => {
       setIsPlaying(false);
       addInteraction('video_ended');
+
+      // End current watch session
+      if (currentWatchSession) {
+        const segmentEnd = video.duration; // Use full duration for ended videos
+        const segmentStart = currentWatchSession.start;
+
+        if (segmentEnd > segmentStart) {
+          setWatchedSegments(prev => {
+            const newSegment = { start: segmentStart, end: segmentEnd };
+            const updated = [...prev];
+
+            // Check if this segment overlaps with existing ones
+            const overlappingIndex = updated.findIndex(seg =>
+              (newSegment.start <= seg.end && newSegment.end >= seg.start)
+            );
+
+            if (overlappingIndex >= 0) {
+              // Merge with existing segment
+              updated[overlappingIndex] = {
+                start: Math.min(updated[overlappingIndex].start, newSegment.start),
+                end: Math.max(updated[overlappingIndex].end, newSegment.end)
+              };
+            } else {
+              // Add new segment
+              updated.push(newSegment);
+            }
+
+            return updated.sort((a, b) => a.start - b.start);
+          });
+        }
+
+        setCurrentWatchSession(null);
+      }
 
       if (watchTimerRef.current) {
         clearInterval(watchTimerRef.current);
@@ -202,7 +341,19 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
         clearInterval(watchTimerRef.current);
       }
     };
-  }, [videoRef.current, addInteraction, setCurrentTime, setDuration, setIsPlaying, setHasStarted, setWatchDuration, currentTime]);
+  }, [videoRef.current, addInteraction, setCurrentTime, setDuration, setIsPlaying, setHasStarted, setWatchDuration, currentTime, isPlaying, currentWatchSession, setWatchedSegments, setCurrentWatchSession]);
+
+  // Debug effect to log progress updates
+  useEffect(() => {
+    console.log('Progress Update:', {
+      watchPercentage: Math.round(watchPercentage),
+      canComplete,
+      watchedSegments: watchedSegments.length,
+      duration,
+      currentTime: Math.round(currentTime),
+      isPlaying
+    });
+  }, [watchPercentage, canComplete, watchedSegments.length, duration, currentTime, isPlaying]);
 
   useEffect(() => {
     if (watchPercentage >= minimumWatchPercentage && !isCompleted && canComplete) {
@@ -230,10 +381,18 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
       userInteractions,
     };
 
+    console.log('Submitting video completion:', {
+      watchData,
+      watchedSegments: watchedSegments.length,
+      calculatedWatchDuration: Math.floor(watchDuration),
+      videoId
+    });
+
     submitWatchVideo(
       { videoId, data: watchData },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          console.log('Video completion successful:', data);
           setIsCompleted(true);
           addInteraction('video_completed');
           clearProgress(); // Clear saved progress after successful completion
@@ -248,6 +407,10 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
             router.push('/dashboard');
           }, 2000);
         },
+        onError: (error) => {
+          console.error('Video completion failed:', error);
+          // Don't clear progress on error so user can retry
+        }
       }
     );
   };
@@ -474,6 +637,10 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
                     ? 'You can now complete this video to earn your reward!'
                     : `Watch ${Math.round(minimumWatchPercentage - watchPercentage)}% more to complete`
                   }
+                </div>
+                {/* Debug info - remove in production */}
+                <div className="text-xs text-gray-400 mt-1">
+                  Debug: Watch {Math.round(watchPercentage)}% / Duration {duration}s | Segments: {watchedSegments.length} | Current: {Math.round(currentTime)}s
                 </div>
               </div>
 

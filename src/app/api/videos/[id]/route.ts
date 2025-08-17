@@ -3,7 +3,7 @@ import { authMiddleware } from '@/lib/api/api-auth';
 import { db } from '@/lib/db';
 import { PositionService } from '@/lib/position-service';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await authMiddleware(request);
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    const videoId = params.id;
+    const { id: videoId } = await params;
 
     // Get user's current position for reward calculation
     const userPosition = await PositionService.getUserCurrentPosition(user.id);
@@ -30,8 +30,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     // Get video details
     const video = await db.video.findFirst({
-      where: { 
-        id: videoId, 
+      where: {
+        id: videoId,
         isActive: true,
         availableFrom: { lte: new Date() },
         AND: [
@@ -58,26 +58,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    // Check if user already watched this video today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
+    // Check if user already watched this video (unique constraint: userId + videoId)
     const existingTask = await db.userVideoTask.findFirst({
       where: {
         userId: user.id,
-        videoId: videoId,
-        watchedAt: {
-          gte: today,
-          lt: tomorrow
-        }
+        videoId: videoId
       }
     });
 
     if (existingTask) {
       return NextResponse.json(
-        { error: 'Video already watched today' },
+        {
+          error: 'Video already completed',
+          message: 'You have already watched and completed this video.',
+          completedAt: existingTask.watchedAt,
+          rewardEarned: existingTask.rewardEarned
+        },
         { status: 400 }
       );
     }

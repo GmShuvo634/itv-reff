@@ -43,26 +43,17 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get today's watched videos
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const todayTasks = await db.userVideoTask.findMany({
+    // Get all watched videos (ever) due to unique constraint
+    const watchedTasks = await db.userVideoTask.findMany({
       where: {
-        userId: user.id,
-        watchedAt: {
-          gte: today,
-          lt: tomorrow
-        }
+        userId: user.id
       },
       select: { videoId: true }
     });
 
-    const watchedVideoIds = todayTasks.map(task => task.videoId);
+    const watchedVideoIds = watchedTasks.map(task => task.videoId);
 
-    // Get available videos that haven't been watched today and match user's position level
+    // Get available videos that haven't been watched ever and match user's position level
     const videos = await db.video.findMany({
       where: {
         isActive: true,
@@ -100,7 +91,7 @@ export async function GET(request: NextRequest) {
         rewardAmount: position.unitPrice, // Use position-based reward
       })),
       dailyTaskLimit,
-      tasksCompletedToday: watchedVideoIds.length,
+      tasksCompletedToday: tasksCompletedToday,
       canCompleteTask: true,
       tasksRemaining: canCompleteTask.tasksRemaining,
       currentPosition: {

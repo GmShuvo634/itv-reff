@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { videosApi, type VideosResponse, type WatchVideoRequest, type WatchVideoResponse, type Video } from '@/lib/api/client';
 import { toast } from '@/hooks/use-toast';
+import { DASHBOARD_QUERY_KEYS } from '@/hooks/use-dashboard';
 
 export const VIDEO_QUERY_KEYS = {
   all: ['videos'] as const,
@@ -50,14 +51,19 @@ export function useWatchVideo() {
         queryKey: VIDEO_QUERY_KEYS.lists(),
       });
 
-      // Also invalidate dashboard data if it exists
+      // Invalidate dashboard data using correct query keys
       queryClient.invalidateQueries({
-        queryKey: ['dashboard'],
+        queryKey: DASHBOARD_QUERY_KEYS.all,
       });
 
       // Invalidate wallet/balance data if it exists
       queryClient.invalidateQueries({
         queryKey: ['wallet'],
+      });
+
+      // Force refetch of dashboard data to ensure immediate updates
+      queryClient.refetchQueries({
+        queryKey: DASHBOARD_QUERY_KEYS.data(),
       });
     },
     onError: (error: any) => {
@@ -139,9 +145,44 @@ export function useVideoProgress(videoId: string) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [userInteractions, setUserInteractions] = useState<any[]>([]);
+  const [watchedSegments, setWatchedSegments] = useState<Array<{start: number, end: number}>>([]);
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const watchPercentage = duration > 0 ? (watchDuration / duration) * 100 : 0;
+
+  // Calculate actual watch time and percentage based on unique watched segments
+  const calculateWatchStats = () => {
+    if (duration <= 0) return { watchTime: 0, watchPercentage: 0 };
+
+    // Merge overlapping segments and calculate total watched time
+    const mergedSegments = watchedSegments.reduce((acc, segment) => {
+      if (acc.length === 0) return [segment];
+
+      const lastSegment = acc[acc.length - 1];
+      if (segment.start <= lastSegment.end) {
+        // Overlapping segments, merge them
+        lastSegment.end = Math.max(lastSegment.end, segment.end);
+      } else {
+        // Non-overlapping segment
+        acc.push(segment);
+      }
+      return acc;
+    }, [] as Array<{start: number, end: number}>);
+
+    const totalWatchedTime = mergedSegments.reduce((total, segment) => {
+      return total + (segment.end - segment.start);
+    }, 0);
+
+    return {
+      watchTime: totalWatchedTime,
+      watchPercentage: Math.min((totalWatchedTime / duration) * 100, 100)
+    };
+  };
+
+  const { watchTime, watchPercentage } = calculateWatchStats();
+
+  // Update legacy watchDuration to match actual watched time
+  const actualWatchDuration = Math.floor(watchTime);
+
   const minimumWatchPercentage = 80;
   const canComplete = watchPercentage >= minimumWatchPercentage;
 
@@ -161,6 +202,7 @@ export function useVideoProgress(videoId: string) {
     setIsPlaying(false);
     setHasStarted(false);
     setUserInteractions([]);
+    setWatchedSegments([]);
   };
 
   return {
@@ -168,7 +210,7 @@ export function useVideoProgress(videoId: string) {
     setCurrentTime,
     duration,
     setDuration,
-    watchDuration,
+    watchDuration: actualWatchDuration, // Use calculated watch duration from segments
     setWatchDuration,
     isPlaying,
     setIsPlaying,
@@ -181,6 +223,8 @@ export function useVideoProgress(videoId: string) {
     canComplete,
     minimumWatchPercentage,
     resetProgress,
+    watchedSegments,
+    setWatchedSegments,
   };
 }
 
