@@ -6,7 +6,7 @@ import { PositionService } from '@/lib/position-service';
 import { TaskManagementBonusService } from '@/lib/task-management-bonus-service';
 import { EnhancedReferralService } from '@/lib/enhanced-referral-service';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await authMiddleware(request);
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       );
     }
 
-    const videoId = params.id;
+    const { id: videoId } = await params;
 
     // Security validation
     const isValid = validateVideoWatchRequest(request);
@@ -40,26 +40,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       );
     }
 
-    // Check if user already watched this video today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
+    // Check if user already watched this video (unique constraint: userId + videoId)
     const existingTask = await db.userVideoTask.findFirst({
       where: {
         userId: user.id,
-        videoId: videoId,
-        watchedAt: {
-          gte: today,
-          lt: tomorrow
-        }
+        videoId: videoId
       }
     });
 
     if (existingTask) {
       return NextResponse.json(
-        { error: 'Video already watched today' },
+        {
+          error: 'Video already completed',
+          message: 'You have already watched and completed this video.',
+          completedAt: existingTask.watchedAt,
+          rewardEarned: existingTask.rewardEarned
+        },
         { status: 400 }
       );
     }
@@ -99,18 +95,64 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json();
     const { watchDuration, verificationData, userInteractions = [] } = body;
 
-    // Enhanced anti-cheat validation
-    const minimumWatchTime = Math.max(video.duration * 0.8, 30); // 80% of video duration or 30 seconds minimum
+    // Enhanced anti-cheat validation with duration mismatch detection
+    console.log('Video duration debug:', {
+      videoDuration: video.duration,
+      videoDurationType: typeof video.duration,
+      calculatedMinimum: video.duration * 0.8,
+      verificationDuration: verificationData?.duration,
+      videoData: {
+        id: video.id,
+        title: video.title,
+        duration: video.duration
+      }
+    });
 
-    if (watchDuration < minimumWatchTime) {
+    // Detect duration mismatch between database and actual video
+    let actualVideoDuration = video.duration;
+    if (verificationData?.duration && Math.abs(video.duration - verificationData.duration) > 10) {
+      console.log('Duration mismatch detected:', {
+        databaseDuration: video.duration,
+        actualDuration: verificationData.duration,
+        difference: Math.abs(video.duration - verificationData.duration)
+      });
+
+      // Use the actual video duration from verification data
+      actualVideoDuration = verificationData.duration;
+      console.log('Using actual video duration for validation:', actualVideoDuration);
+    }
+
+    const minimumWatchTime = Math.max(actualVideoDuration * 0.8, 30); // 80% of actual video duration or 30 seconds minimum
+
+    // Use verification data as fallback if watchDuration is 0 (new segment-based tracking)
+    let actualWatchDuration = watchDuration;
+    if (watchDuration === 0 && verificationData?.watchPercentage) {
+      // Calculate watch duration from percentage for new tracking system using actual video duration
+      actualWatchDuration = Math.floor((verificationData.watchPercentage / 100) * actualVideoDuration);
+      console.log('Using verification data for watch duration:', {
+        watchPercentage: verificationData.watchPercentage,
+        calculatedDuration: actualWatchDuration,
+        actualVideoDuration: actualVideoDuration,
+        databaseVideoDuration: video.duration
+      });
+    }
+
+    if (actualWatchDuration < minimumWatchTime) {
       return NextResponse.json(
-        { error: 'Video not watched long enough' },
+        {
+          error: 'Video not watched long enough',
+          details: {
+            watchDuration: actualWatchDuration,
+            minimumRequired: minimumWatchTime,
+            watchPercentage: verificationData?.watchPercentage || 0
+          }
+        },
         { status: 400 }
       );
     }
 
-    // Check for suspicious patterns
-    if (watchDuration > video.duration * 2) {
+    // Check for suspicious patterns using actual video duration
+    if (actualWatchDuration > actualVideoDuration * 2) {
       return NextResponse.json(
         { error: 'Invalid watch duration' },
         { status: 400 }
@@ -126,7 +168,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         userId: user.id,
         videoId: videoId,
         watchedAt: new Date(),
-        watchDuration: watchDuration,
+        watchDuration: actualWatchDuration, // Use corrected watch duration
         rewardEarned: rewardEarned,
         positionLevel: position.name,
         ipAddress,
@@ -156,12 +198,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         status: 'COMPLETED',
         metadata: JSON.stringify({
           videoId: videoId,
-          watchDuration: watchDuration,
+          watchDuration: actualWatchDuration, // Use corrected watch duration
+          originalWatchDuration: watchDuration, // Keep original for debugging
           positionLevel: position.name,
           verificationData,
           userInteractions,
           ipAddress,
-          securityScore: calculateSecurityScore(watchDuration, video.duration, userInteractions)
+          securityScore: calculateSecurityScore(actualWatchDuration, actualVideoDuration, userInteractions)
         })
       }
     });
@@ -217,7 +260,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       dailyTaskLimit: dailyLimit,
       positionLevel: position.name,
       managementBonusDistributed: bonusResult.totalBonusDistributed,
-      bonusBreakdown: bonusResult.bonusBreakdown
+      bonusBreakdown: bonusResult.bonusBreakdown,
+      debug: {
+        originalWatchDuration: watchDuration,
+        actualWatchDuration: actualWatchDuration,
+        watchPercentage: verificationData?.watchPercentage || 0,
+        minimumRequired: minimumWatchTime,
+        databaseVideoDuration: video.duration,
+        actualVideoDuration: actualVideoDuration,
+        durationMismatchDetected: Math.abs(video.duration - (verificationData?.duration || video.duration)) > 10
+      }
     });
 
   } catch (error) {
