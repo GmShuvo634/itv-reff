@@ -8,8 +8,6 @@ export default async function DashboardPage() {
   if (!user) redirect("/");
 
   return (
-    <DashboardLayout user={user}>
       <DashboardOverview />
-    </DashboardLayout>
   );
 }

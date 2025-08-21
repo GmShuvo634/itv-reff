@@ -1,3 +1,5 @@
+import { DashboardScrollableLayout } from "@/components/scrollable-layout";
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
   user: {
@@ -8,12 +10,13 @@ interface DashboardLayoutProps {
   };
 }
 
-
-
 export default function DashboardLayout({
   children,
+  user,
 }: DashboardLayoutProps) {
-
-
-  return <main className="p-4 lg:p-6">{children}</main>;
+  return (
+    <DashboardScrollableLayout user={user}>
+      {children}
+    </DashboardScrollableLayout>
+  );
 }
