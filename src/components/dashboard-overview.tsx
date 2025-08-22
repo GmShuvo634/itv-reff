@@ -26,30 +26,35 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, EffectFade } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/autoplay";
+import "swiper/css/effect-fade";
 import Image from "next/image";
 
 const sliderImages = [
   {
     id: 1,
-    src: "/slider-1.png",
+    src: "/slide1.jpg",
     alt: "Slider 1",
   },
   {
     id: 2,
-    src: "/slider-2.png",
+    src: "/slide2.png",
     alt: "Slider 2",
   },
   {
     id: 3,
-    src: "/slider-3.png",
+    src: "/slide3.jpg",
     alt: "Slider 3",
   },
   {
     id: 4,
-    src: "/slider-4.png",
+    src: "/slide4.png",
     alt: "Slider 4",
-  }
-]
+  },
+];
 
 export default function DashboardOverview() {
   const router = useRouter();
@@ -105,7 +110,44 @@ export default function DashboardOverview() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
+      <div className="h-80 mb-8">
+        <Swiper
+          modules={[Autoplay, EffectFade]}
+          effect="fade"
+          fadeEffect={{
+            crossFade: true,
+          }}
+          spaceBetween={0}
+          centeredSlides={true}
+          autoplay={{
+            delay: 1500,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: false,
+            stopOnLastSlide: false,
+          }}
+          loop={true}
+          speed={800}
+          allowTouchMove={false}
+          simulateTouch={false}
+          touchRatio={0}
+          resistance={false}
+          grabCursor={false}
+          preventClicks={true}
+          preventClicksPropagation={true}
+        >
+          {sliderImages.map((image) => (
+            <SwiperSlide key={image.id}>
+              <Image
+                src={image.src}
+                alt={image.alt}
+                width={500}
+                height={300}
+                className="w-full h-auto"
+              />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
