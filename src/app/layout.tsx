@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { FullPageScrollableLayout } from "@/components/scrollable-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
