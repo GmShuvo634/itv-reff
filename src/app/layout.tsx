@@ -67,7 +67,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <FullPageScrollableLayout>{children}</FullPageScrollableLayout>
+            {children}
             <Toaster />
           </ThemeProvider>
         </QueryProvider>

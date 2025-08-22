@@ -73,12 +73,14 @@ export function DashboardScrollableLayout({
  */
 interface FullPageScrollableLayoutProps extends ScrollableLayoutProps {
   header?: React.ReactNode;
+  menubar?: React.ReactNode;
   footer?: React.ReactNode;
 }
 
 export function FullPageScrollableLayout({
   children,
   header,
+  menubar,
   footer,
   className,
   ...props
@@ -98,6 +100,13 @@ export function FullPageScrollableLayout({
           {children}
         </ScrollableLayout>
       </div>
+
+      {/* Menubar */}
+      {menubar && (
+        <div className="flex-shrink-0">
+          {menubar}
+        </div>
+      )}
 
       {/* Fixed footer */}
       {footer && (
