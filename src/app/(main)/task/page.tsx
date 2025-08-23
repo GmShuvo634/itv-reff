@@ -1,9 +1,8 @@
-import React from 'react'
+import TaskOverview from "@/components/task-overview";
+import React from "react";
 
 const TaskPage = () => {
-  return (
-    <div>TaskPage</div>
-  )
-}
+  return <TaskOverview />;
+};
 
-export default TaskPage
+export default TaskPage;

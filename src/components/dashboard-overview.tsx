@@ -32,6 +32,7 @@ import "swiper/css";
 import "swiper/css/autoplay";
 import "swiper/css/effect-fade";
 import Image from "next/image";
+import DashboardHeader from "./DashboardHeader";
 
 const sliderImages = [
   {
@@ -110,6 +111,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
       <div className="h-80 mb-8">
         <Swiper
           modules={[Autoplay, EffectFade]}
@@ -236,9 +238,15 @@ export default function DashboardOverview() {
         {/* Main Content Tabs */}
         <Tabs defaultValue="tasks" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tasks">Video Tasks</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet</TabsTrigger>
-            <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="tasks">
+              Video Tasks
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="wallet">
+              Wallet
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="withdraw">
+              Withdraw
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">

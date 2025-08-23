@@ -8,8 +8,7 @@ export default async function MainLayout({
 }>) {
   return (
     <div className="relative h-screen flex flex-col">
-      <DashboardHeader />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-5">
         {children}
       </div>
       <DashboardMenubarNavigation />
