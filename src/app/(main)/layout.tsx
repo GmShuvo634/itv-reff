@@ -1,4 +1,3 @@
-import DashboardHeader from "@/components/DashboardHeader";
 import DashboardMenubarNavigation from "@/components/DashboardMenuNavigation";
 
 export default async function MainLayout({
