@@ -55,26 +55,45 @@ const DashboardMenubarNavigation = () => {
   ];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-50 flex flex-col flex-shrink-0">
-      <div className="h-[52px] bg-black/70 text-white">
-        <nav className="flex items-center justify-between h-full pt-[12px] pl-[14px] pr-[14px]">
+    <div className="absolute bottom-0 left-0 right-0 z-50 flex flex-col flex-shrink-0 shadow-lg">
+      {/* Enhanced background with gradient and better contrast */}
+      <div className="h-[60px] bg-gradient-to-t from-slate-900 via-slate-800 to-slate-700 border-t border-slate-600/50 backdrop-blur-sm">
+        <nav className="flex items-center justify-between h-full px-4">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             const isActive = pathname === item.href;
 
             return (
-              <Link href={item.href} key={item.id}>
-                <div className="transition-colors hover:bg-gray-700/50 flex flex-col items-center">
+              <Link href={item.href} key={item.id} className="flex-1 group">
+                <div
+                  className={`
+                    flex flex-col items-center justify-center py-2 px-3 rounded-lg
+                    transition-all duration-200 ease-out
+                    group-hover:bg-white/10 active:scale-95
+                    ${isActive
+                      ? 'bg-blue-500/20 shadow-lg shadow-blue-500/25'
+                      : ''
+                    }
+                  `}
+                >
                   <IconComponent
-                    size={20}
-                    className={`${
-                      isActive ? "text-yellow-400" : "text-gray-400"
-                    } transition-colors`}
+                    size={22}
+                    className={`
+                      transition-colors duration-200 ease-out mb-1
+                      ${isActive
+                        ? "text-blue-400"
+                        : "text-slate-300 group-hover:text-white"
+                      }
+                    `}
                   />
                   <span
-                    className={`text-xs ${
-                      isActive ? "text-yellow-400" : "text-gray-400"
-                    } transition-colors`}
+                    className={`
+                      text-xs font-medium transition-colors duration-200 ease-out
+                      ${isActive
+                        ? "text-blue-300 font-semibold"
+                        : "text-slate-400 group-hover:text-white"
+                      }
+                    `}
                   >
                     {item.label}
                   </span>
