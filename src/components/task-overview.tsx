@@ -18,7 +18,11 @@ const TaskOverview = () => {
       <h1 className="text-3xl font-bold text-center">Task List</h1>
 
       <div className="mt-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-x-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-x-6"
+        >
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger
               className="cursor-pointer

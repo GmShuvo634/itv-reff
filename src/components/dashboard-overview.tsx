@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthErrorHandler } from "@/lib/auth-error-handler";
 import {
   Card,
   CardContent,
@@ -73,12 +74,9 @@ export default function DashboardOverview() {
     refetch: refetchVideos,
   } = useVideos();
 
-  // Handle authentication errors
-  useEffect(() => {
-    if (dashboardError?.status === 401) {
-      router.push("/");
-    }
-  }, [dashboardError, router]);
+  // Handle authentication errors using the global handler
+  useAuthErrorHandler(dashboardError);
+  useAuthErrorHandler(videosError);
 
   if (dashboardLoading) {
     return (

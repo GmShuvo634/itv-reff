@@ -8,9 +8,7 @@ export default async function MainLayout({
 }>) {
   return (
     <div className="relative h-screen flex flex-col">
-      <div className="flex-1 overflow-y-auto pb-5">
-        {children}
-      </div>
+      <div className="flex-1 min-h-screen overflow-y-auto pb-5">{children}</div>
       <DashboardMenubarNavigation />
     </div>
   );

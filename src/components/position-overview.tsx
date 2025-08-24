@@ -3,18 +3,14 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Crown, 
-  Star, 
-  Zap, 
-  Check, 
-  Clock, 
-  Play, 
+import {
+  Crown,
+  Star,
+  Zap,
+  Check,
+  Clock,
   Gift,
   ArrowRight,
-  Users,
-  TrendingUp,
   Shield,
   Target
 } from 'lucide-react';
@@ -46,7 +42,7 @@ interface CurrentPosition {
   tasksRemaining: number;
 }
 
-export default function PositionsPage() {
+export default function PostionOverview() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [currentPosition, setCurrentPosition] = useState<CurrentPosition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +82,7 @@ export default function PositionsPage() {
   const handleUpgrade = async (positionId: string, deposit: number) => {
     try {
       setUpgrading(positionId);
-      
+
       const response = await fetch('/api/positions/upgrade', {
         method: 'POST',
         headers: {
@@ -99,7 +95,7 @@ export default function PositionsPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         alert(`Position upgrade successful! ${data.message}`);
         fetchCurrentPosition(); // Refresh current position
@@ -234,8 +230,8 @@ export default function PositionsPage() {
             const isIntern = position.level === 0;
 
             return (
-              <Card 
-                key={position.id} 
+              <Card
+                key={position.id}
                 className={`relative overflow-hidden transition-all hover:shadow-lg ${
                   isCurrentPosition ? 'ring-2 ring-green-500' : ''
                 } ${isIntern ? 'border-gray-300' : 'border-blue-300'}`}
@@ -245,7 +241,7 @@ export default function PositionsPage() {
                     Current
                   </div>
                 )}
-                
+
                 <CardHeader className="text-center pb-4">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${getPositionColor(position.level)}`}>
                     {getPositionIcon(position.level)}
@@ -263,7 +259,7 @@ export default function PositionsPage() {
                     </span>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
@@ -301,8 +297,8 @@ export default function PositionsPage() {
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     disabled={!canUpgrade || upgrading === position.id || isCurrentPosition}
                     onClick={() => handleUpgrade(position.id, position.deposit)}
                     variant={isCurrentPosition ? "secondary" : "default"}
