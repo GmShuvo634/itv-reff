@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface UserNavigationBarItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -91,7 +92,7 @@ const UserOverview = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg pb-4">
         <div className="flex items-center justify-between p-6">
           {/* Left side - Settings */}
           <div className="flex-1">
@@ -136,14 +137,23 @@ const UserOverview = () => {
 
           {/* Right side - Notifications */}
           <div className="flex-1 flex items-center justify-end">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20 relative"
-            >
-              <Eye className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </Button>
+            <Link href={"/user/wallet"}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/20 relative cursor-pointer"
+                  >
+                    <Eye className="w-5 h-5" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>My Wallet</p>
+                </TooltipContent>
+              </Tooltip>
+            </Link>
           </div>
         </div>
       </div>
@@ -169,10 +179,10 @@ const UserOverview = () => {
                     <p className="text-2xl font-bold text-gray-900">PKR 0</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="text-gray-600">
+                {/* <Button variant="outline" size="sm" className="text-gray-600">
                   <DollarSign className="w-4 h-4 mr-1" />
                   Deposit
-                </Button>
+                </Button> */}
               </div>
             </div>
 
@@ -191,14 +201,16 @@ const UserOverview = () => {
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-blue-600 border-blue-200"
-                >
-                  <ArrowRight className="w-4 h-4 mr-1" />
-                  Withdraw
-                </Button>
+                <Link href={"/withdraw"}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 cursor-pointer"
+                  >
+                    <ArrowRight className="w-4 h-4 mr-1" />
+                    Withdraw
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
