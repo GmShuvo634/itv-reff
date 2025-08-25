@@ -10,6 +10,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 
 interface LoginFormProps {
   loginAction: (prevState: any, formData: FormData) => Promise<any>;
+  className?: string;
 }
 
 export default function LoginForm({ loginAction }: LoginFormProps) {

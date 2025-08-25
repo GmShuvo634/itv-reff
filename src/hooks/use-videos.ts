@@ -210,7 +210,7 @@ export function useVideoProgress(videoId: string) {
     setCurrentTime,
     duration,
     setDuration,
-    watchDuration: actualWatchDuration, // Use calculated watch duration from segments
+    watchDuration: actualWatchDuration, 
     setWatchDuration,
     isPlaying,
     setIsPlaying,

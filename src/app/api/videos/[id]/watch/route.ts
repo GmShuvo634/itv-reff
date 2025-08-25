@@ -111,30 +111,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Detect duration mismatch between database and actual video
     let actualVideoDuration = video.duration;
     if (verificationData?.duration && Math.abs(video.duration - verificationData.duration) > 10) {
-      console.log('Duration mismatch detected:', {
-        databaseDuration: video.duration,
-        actualDuration: verificationData.duration,
-        difference: Math.abs(video.duration - verificationData.duration)
-      });
-
       // Use the actual video duration from verification data
       actualVideoDuration = verificationData.duration;
       console.log('Using actual video duration for validation:', actualVideoDuration);
     }
 
-    const minimumWatchTime = Math.max(actualVideoDuration * 0.8, 30); // 80% of actual video duration or 30 seconds minimum
+    const minimumWatchTime = actualVideoDuration * 0.8; // 80% of actual video duration
 
     // Use verification data as fallback if watchDuration is 0 (new segment-based tracking)
     let actualWatchDuration = watchDuration;
     if (watchDuration === 0 && verificationData?.watchPercentage) {
-      // Calculate watch duration from percentage for new tracking system using actual video duration
-      actualWatchDuration = Math.floor((verificationData.watchPercentage / 100) * actualVideoDuration);
-      console.log('Using verification data for watch duration:', {
-        watchPercentage: verificationData.watchPercentage,
-        calculatedDuration: actualWatchDuration,
-        actualVideoDuration: actualVideoDuration,
-        databaseVideoDuration: video.duration
-      });
+        actualWatchDuration = Math.floor((verificationData.watchPercentage / 100) * actualVideoDuration);
     }
 
     if (actualWatchDuration < minimumWatchTime) {

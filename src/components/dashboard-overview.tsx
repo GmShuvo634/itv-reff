@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthErrorHandler } from "@/lib/auth-error-handler";
 import {
   Card,
   CardContent,
@@ -21,13 +22,41 @@ import {
   Play,
   Users,
   TrendingUp,
-  Gift,
   ArrowUpRight,
   Target,
-  LogOut,
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, EffectFade } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/autoplay";
+import "swiper/css/effect-fade";
+import Image from "next/image";
+import DashboardHeader from "./DashboardHeader";
+
+const sliderImages = [
+  {
+    id: 1,
+    src: "/slide1.jpg",
+    alt: "Slider 1",
+  },
+  {
+    id: 2,
+    src: "/slide2.png",
+    alt: "Slider 2",
+  },
+  {
+    id: 3,
+    src: "/slide3.jpg",
+    alt: "Slider 3",
+  },
+  {
+    id: 4,
+    src: "/slide4.png",
+    alt: "Slider 4",
+  },
+];
 
 export default function DashboardOverview() {
   const router = useRouter();
@@ -45,21 +74,9 @@ export default function DashboardOverview() {
     refetch: refetchVideos,
   } = useVideos();
 
-  // Handle authentication errors
-  useEffect(() => {
-    if (dashboardError?.status === 401) {
-      router.push("/");
-    }
-  }, [dashboardError, router]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
+  // Handle authentication errors using the global handler
+  useAuthErrorHandler(dashboardError);
+  useAuthErrorHandler(videosError);
 
   if (dashboardLoading) {
     return (
@@ -92,55 +109,45 @@ export default function DashboardOverview() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="relative w-8 h-8">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg"></div>
-              </div>
-              <span className="ml-2 text-lg font-semibold">
-                VideoTask Rewards
-              </span>
-            </div>
-            <div className="flex items-center space-x-6">
-              {/* Navigation Links */}
-              <nav className="hidden md:flex items-center space-x-4">
-                <a
-                  href="/dashboard"
-                  className="text-blue-600 font-medium hover:text-blue-700 transition-colors"
-                >
-                  Dashboard
-                </a>
-                <a
-                  href="/referrals"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Referrals
-                </a>
-                <a
-                  href="/positions"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Positions
-                </a>
-              </nav>
-
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
-                  Welcome, {user.name}
-                </span>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <DashboardHeader />
+      <div className="h-80 mb-8">
+        <Swiper
+          modules={[Autoplay, EffectFade]}
+          effect="fade"
+          fadeEffect={{
+            crossFade: true,
+          }}
+          spaceBetween={0}
+          centeredSlides={true}
+          autoplay={{
+            delay: 1500,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: false,
+            stopOnLastSlide: false,
+          }}
+          loop={true}
+          speed={800}
+          allowTouchMove={false}
+          simulateTouch={false}
+          touchRatio={0}
+          resistance={false}
+          grabCursor={false}
+          preventClicks={true}
+          preventClicksPropagation={true}
+        >
+          {sliderImages.map((image) => (
+            <SwiperSlide key={image.id}>
+              <Image
+                src={image.src}
+                alt={image.alt}
+                width={500}
+                height={300}
+                className="w-full h-auto"
+              />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -229,9 +236,15 @@ export default function DashboardOverview() {
         {/* Main Content Tabs */}
         <Tabs defaultValue="tasks" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tasks">Video Tasks</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet</TabsTrigger>
-            <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="tasks">
+              Video Tasks
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="wallet">
+              Wallet
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="withdraw">
+              Withdraw
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -459,8 +472,6 @@ export default function DashboardOverview() {
               </CardContent>
             </Card>
           </TabsContent>
-
-
 
           <TabsContent value="withdraw" className="space-y-6">
             <Card>

@@ -10,6 +10,25 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+      screens: {
+        'xs': '475px',
+        'sm': '640px',
+        'md': '768px',
+        'lg': '1024px',
+        'xl': '1280px',
+        '2xl': '1400px',
+        '3xl': '1600px',
+        '4xl': '1920px',
+        // Max width constraints
+        'max-xs': {'max': '474px'},
+        'max-sm': {'max': '639px'},
+        'max-md': {'max': '767px'},
+        'max-lg': {'max': '1023px'},
+        'max-xl': {'max': '1279px'},
+        'max-2xl': {'max': '1399px'},
+        'max-3xl': {'max': '1599px'},
+        'max-4xl': {'max': '1919px'},
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
