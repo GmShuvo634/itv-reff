@@ -402,9 +402,9 @@ const WatchVideo = ({ videoId }: WatchVideoProps) => {
             watchTimerRef.current = null;
           }
 
-          // Redirect to dashboard after a short delay to show success message
+          // Redirect to task after a short delay to show success message
           setTimeout(() => {
-            router.push('/dashboard');
+            router.push('/task');
           }, 2000);
         },
         onError: (error) => {

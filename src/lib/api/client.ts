@@ -92,11 +92,24 @@ apiClient.interceptors.response.use(
       apiError.message = error.message;
     }
 
-    // Handle authentication errors
+    // Handle authentication errors - redirect to '/' instantly for any 401
     if (error.response?.status === 401) {
       apiError.message = 'Authentication required. Please log in again.';
-      // Redirect to login if in browser
+
+      // Clear any stored authentication data
       if (typeof window !== 'undefined') {
+        // Clear access token cookie
+        document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+
+        // Clear any localStorage auth data if exists
+        try {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+
+        // Instant redirect to home page
         window.location.href = '/';
       }
     }

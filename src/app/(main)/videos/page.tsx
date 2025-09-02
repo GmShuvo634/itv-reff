@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Play, 
-  Clock, 
-  DollarSign, 
-  CheckCircle, 
+import { authFetch } from '@/lib/auth-error-handler';
+import {
+  Play,
+  Clock,
+  DollarSign,
+  CheckCircle,
   AlertCircle,
   ArrowLeft,
   RotateCcw
@@ -52,7 +53,7 @@ export default function VideosPage() {
 
   const fetchVideos = async () => {
     try {
-      const response = await fetch('/api/videos');
+      const response = await authFetch('/api/videos');
       if (response.ok) {
         const data: VideosResponse = await response.json();
         setVideos(data.videos);
@@ -60,17 +61,12 @@ export default function VideosPage() {
         setVideosWatched(data.videosWatched);
         setCanWatchMore(data.canWatchMore);
       } else {
-        // If not authenticated, redirect to login
-        if (response.status === 401) {
-          router.push('/');
-        }
+        // Auth errors are handled by authFetch automatically
+        console.error('Failed to fetch videos:', response.status);
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
-      // Only redirect on network errors, not on auth errors
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        router.push('/');
-      }
+      // Auth errors are handled by authFetch automatically
     } finally {
       setLoading(false);
     }
@@ -111,18 +107,18 @@ export default function VideosPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         // Mark video as completed
         setCompletedVideos(prev => new Set(prev).add(currentVideo.id));
-        
+
         // Remove completed video from list
         setVideos(prev => prev.filter(v => v.id !== currentVideo.id));
         setVideosWatched(prev => prev + 1);
-        
+
         alert(`Video completed! Earned $${data.rewardEarned.toFixed(2)}`);
         stopWatching();
-        
+
         // Check if daily limit reached
         if (data.videosWatchedToday >= data.dailyLimit) {
           setCanWatchMore(false);
@@ -151,19 +147,19 @@ export default function VideosPage() {
   // Simulate video watching progress
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isWatching && currentVideo) {
       interval = setInterval(() => {
         setWatchTime(prev => {
           const newTime = prev + 1;
           const progress = (newTime / currentVideo.duration) * 100;
           setWatchProgress(Math.min(progress, 100));
-          
+
           // Auto-complete when 80% watched
           if (progress >= 80) {
             completeVideo();
           }
-          
+
           return newTime;
         });
       }, 1000);
@@ -219,8 +215,8 @@ export default function VideosPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="mb-6">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={stopWatching}
               className="mb-4"
             >
@@ -242,7 +238,7 @@ export default function VideosPage() {
                   <p className="text-lg">Video Player</p>
                   <p className="text-sm opacity-75">{currentVideo.title}</p>
                 </div>
-                
+
                 {/* Progress overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
                   <div className="flex items-center justify-between text-white text-sm mb-2">
@@ -282,22 +278,22 @@ export default function VideosPage() {
                     <AlertCircle className="h-5 w-5 text-orange-600" />
                   )}
                   <span className="text-sm">
-                    {watchProgress >= 80 
-                      ? 'Ready to complete!' 
+                    {watchProgress >= 80
+                      ? 'Ready to complete!'
                       : `Watch ${Math.ceil((currentVideo.duration * 0.8 - watchTime) / 60)} more minutes to complete`
                     }
                   </span>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={stopWatching}
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={completeVideo}
                     disabled={watchProgress < 80}
                   >
@@ -346,8 +342,8 @@ export default function VideosPage() {
               <div className="text-sm text-gray-600">Videos Completed</div>
             </div>
           </div>
-          <Progress 
-            value={(videosWatched / dailyLimit) * 100} 
+          <Progress
+            value={(videosWatched / dailyLimit) * 100}
             className="h-3"
           />
           <p className="text-sm text-gray-600 mt-2">
@@ -377,15 +373,15 @@ export default function VideosPage() {
         {videos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video) => (
-              <Card 
-                key={video.id} 
+              <Card
+                key={video.id}
                 className="cursor-pointer hover:shadow-lg transition-shadow"
                 onClick={() => startWatching(video)}
               >
                 <div className="aspect-video bg-gray-200 rounded-t-lg relative overflow-hidden">
                   {video.thumbnailUrl ? (
-                    <img 
-                      src={video.thumbnailUrl} 
+                    <img
+                      src={video.thumbnailUrl}
                       alt={video.title}
                       className="w-full h-full object-cover"
                     />
