@@ -51,7 +51,7 @@ interface WalletBalance {
   totalEarnings: number;
 }
 
-export default function WithdrawPage() {
+export default function WithdrawTab() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalsResponse | null>(null);
   const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -202,76 +202,8 @@ export default function WithdrawPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="relative w-8 h-8">
-                <img
-                  src="/logo.svg"
-                  alt="VideoTask Rewards"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <span className="ml-2 text-lg font-semibold">VideoTask Rewards</span>
-            </div>
-            <nav className="flex space-x-4">
-              <a href="/dashboard" className="text-gray-600 hover:text-gray-900">Dashboard</a>
-              <a href="/withdraw" className="text-blue-600 font-medium">Withdraw</a>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Withdrawal Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                PKR {walletBalance?.balance.toFixed(2) || '0.00'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Available for withdrawal
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Weekly Limit</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                PKR {withdrawals?.weeklyRemaining.toFixed(2) || '100.00'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Remaining this week
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Minimum Withdrawal</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">PKR 10.00</div>
-              <p className="text-xs text-muted-foreground">
-                Minimum amount
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
+    <div className="bg-gray-50">
+      <main className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Withdrawal Form */}
           <Card>

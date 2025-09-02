@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status'); // PENDING, APPROVED, REJECTED, PROCESSED
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const skip = (page - 1) * limit;
 
@@ -26,6 +28,16 @@ export async function GET(request: NextRequest) {
 
     if (status && ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED'].includes(status)) {
       where.status = status;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
     }
 
     // Get withdrawal requests with pagination
@@ -54,7 +66,7 @@ export async function GET(request: NextRequest) {
       _count: { id: true }
     });
 
-    const weeklyLimit = 100.00; // $100 weekly limit
+    const weeklyLimit = 100.00; // PKR 100 weekly limit
     const weeklyWithdrawn = weeklyWithdrawals._sum.amount || 0;
     const weeklyRemaining = Math.max(0, weeklyLimit - weeklyWithdrawn);
 
