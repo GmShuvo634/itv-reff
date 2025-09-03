@@ -150,7 +150,7 @@ export default function ReferralPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Referral Program</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Invite friends and earn $5 for each person who joins and starts watching videos. 
+            Invite friends and earn PKR 5 for each person who joins and starts watching videos. 
             There's no limit to how much you can earn!
           </p>
         </div>
@@ -194,7 +194,7 @@ export default function ReferralPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                ${referralStats?.totalReferralEarnings.toFixed(2) || '0.00'}
+                PKR {referralStats?.totalReferralEarnings.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
                 Total earned
@@ -208,7 +208,7 @@ export default function ReferralPage() {
               <Gift className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">$5.00</div>
+              <div className="text-2xl font-bold text-orange-600">PKR 5.00</div>
               <p className="text-xs text-muted-foreground">
                 When they start earning
               </p>
@@ -308,7 +308,7 @@ export default function ReferralPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-green-600">
-                            ${referral.earnings.toFixed(2)}
+                            PKR {referral.earnings.toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-500">Earned</p>
                         </div>
@@ -359,7 +359,7 @@ export default function ReferralPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-green-600">
-                            ${referral.earnings.toFixed(2)}
+                            PKR {referral.earnings.toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-500">Total Earnings</p>
                         </div>
@@ -410,7 +410,7 @@ export default function ReferralPage() {
                 </div>
                 <h3 className="font-semibold mb-2">Earn Bonus</h3>
                 <p className="text-sm text-gray-600">
-                  Get $5 when your friend starts watching videos
+                  Get PKR 5 when your friend starts watching videos
                 </p>
               </div>
             </div>

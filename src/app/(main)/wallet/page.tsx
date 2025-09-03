@@ -17,7 +17,6 @@ import {
   Download,
   Eye
 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Transaction {
   id: string;
@@ -59,7 +58,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<TransactionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    type: '',
+    type: 'all',
     startDate: '',
     endDate: '',
     page: 1,
@@ -87,7 +86,7 @@ export default function WalletPage() {
     try {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value.toString());
+        if (value && value !== 'all') params.append(key, value.toString());
       });
 
       const response = await fetch(`/api/wallet/transactions?${params}`);
@@ -179,7 +178,7 @@ export default function WalletPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ${walletData?.balance.toFixed(2) || '0.00'}
+                PKR {walletData?.balance.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
                 Available for withdrawal
@@ -194,7 +193,7 @@ export default function WalletPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                ${walletData?.totalEarnings.toFixed(2) || '0.00'}
+                PKR {walletData?.totalEarnings.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
                 Since joining
@@ -209,7 +208,7 @@ export default function WalletPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                ${((walletData?.totalEarnings || 0) - (walletData?.balance || 0)).toFixed(2)}
+                PKR {((walletData?.totalEarnings || 0) - (walletData?.balance || 0)).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Total withdrawn
@@ -239,16 +238,16 @@ export default function WalletPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <Label htmlFor="type-filter">Type</Label>
-                <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All types</SelectItem>
-                    <SelectItem value="CREDIT">Credits</SelectItem>
-                    <SelectItem value="DEBIT">Debits</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  id="type-filter"
+                  value={filters.type}
+                  onChange={(e) => handleFilterChange('type', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All types</option>
+                  <option value="CREDIT">Credits</option>
+                  <option value="DEBIT">Debits</option>
+                </select>
               </div>
               <div>
                 <Label htmlFor="start-date">Start Date</Label>
@@ -270,17 +269,17 @@ export default function WalletPage() {
               </div>
               <div>
                 <Label htmlFor="limit">Per Page</Label>
-                <Select value={filters.limit.toString()} onValueChange={(value) => handleFilterChange('limit', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  id="limit"
+                  value={filters.limit.toString()}
+                  onChange={(e) => handleFilterChange('limit', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
               </div>
             </div>
 
@@ -289,7 +288,7 @@ export default function WalletPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
                 <div className="text-center">
                   <div className="text-lg font-semibold text-green-600">
-                    ${transactions.summary.totalCredits.toFixed(2)}
+                    PKR {transactions.summary.totalCredits.toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-600">Total Credits</div>
                   <div className="text-xs text-gray-500">
@@ -298,7 +297,7 @@ export default function WalletPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-semibold text-red-600">
-                    ${transactions.summary.totalDebits.toFixed(2)}
+                    PKR {transactions.summary.totalDebits.toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-600">Total Debits</div>
                   <div className="text-xs text-gray-500">
@@ -307,7 +306,7 @@ export default function WalletPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-semibold text-blue-600">
-                    ${(transactions.summary.totalCredits - transactions.summary.totalDebits).toFixed(2)}
+                    PKR {(transactions.summary.totalCredits - transactions.summary.totalDebits).toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-600">Net Flow</div>
                 </div>
@@ -352,10 +351,10 @@ export default function WalletPage() {
                       <p className={`font-semibold ${
                         transaction.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {transaction.type === 'CREDIT' ? '+' : '-'}${transaction.amount.toFixed(2)}
+                        {transaction.type === 'CREDIT' ? '+' : '-'}PKR {transaction.amount.toFixed(2)}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Balance: ${transaction.balanceAfter.toFixed(2)}
+                        Balance: PKR {transaction.balanceAfter.toFixed(2)}
                       </p>
                     </div>
                   </div>

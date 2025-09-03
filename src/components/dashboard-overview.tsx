@@ -34,6 +34,8 @@ import "swiper/css/autoplay";
 import "swiper/css/effect-fade";
 import Image from "next/image";
 import DashboardHeader from "./DashboardHeader";
+import WithdrawTab from "./withdraw-tab";
+import WalletTab from "./wallet-tab";
 
 const sliderImages = [
   {
@@ -262,7 +264,7 @@ export default function DashboardOverview() {
               </CardHeader>
               <CardContent>
                 {(todayProgress.videosWatched || 0) >=
-                (todayProgress.dailyLimit || 0) ? (
+                  (todayProgress.dailyLimit || 0) ? (
                   <div className="text-center py-8">
                     <div className="text-green-600 text-6xl mb-4">🎉</div>
                     <h3 className="text-lg font-semibold text-green-600 mb-2">
@@ -288,16 +290,14 @@ export default function DashboardOverview() {
                           <h4 className="font-semibold">Available Videos</h4>
                           <p className="text-sm text-gray-600">
                             {videosData?.videos
-                              ? `${
-                                  videosData.videos.length
-                                } videos available • ${
-                                  videosData.tasksRemaining ?? 0
-                                } tasks remaining`
+                              ? `${videosData.videos.length
+                              } videos available • ${videosData.tasksRemaining ?? 0
+                              } tasks remaining`
                               : `${Math.max(
-                                  0,
-                                  (todayProgress?.dailyLimit ?? 0) -
-                                    (todayProgress?.videosWatched ?? 0)
-                                )} videos remaining today`}
+                                0,
+                                (todayProgress?.dailyLimit ?? 0) -
+                                (todayProgress?.videosWatched ?? 0)
+                              )} videos remaining today`}
                           </p>
                         </div>
                       </div>
@@ -357,7 +357,7 @@ export default function DashboardOverview() {
                         <p className="text-gray-500 mb-4">
                           {videosData?.canCompleteTask === false
                             ? videosData.reason ||
-                              "You have reached your daily limit."
+                            "You have reached your daily limit."
                             : "Check back later for new videos to watch and earn rewards."}
                         </p>
                         {videosData?.currentPosition && (
@@ -375,171 +375,11 @@ export default function DashboardOverview() {
           </TabsContent>
 
           <TabsContent value="wallet" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="h-5 w-5" />
-                  Wallet Overview
-                </CardTitle>
-                <CardDescription>
-                  Manage your earnings and view transaction history
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Current Balance
-                    </h3>
-                    <div className="text-3xl font-bold text-green-600 mb-2">
-                      ${user.walletBalance.toFixed(2)}
-                    </div>
-                    <p className="text-gray-600">Available for withdrawal</p>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Total Earnings
-                    </h3>
-                    <div className="text-3xl font-bold text-blue-600 mb-2">
-                      ${user.totalEarnings.toFixed(2)}
-                    </div>
-                    <p className="text-gray-600">Since joining</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>
-                  Your latest earning and withdrawal activities
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentTransactions.length > 0 ? (
-                    recentTransactions.map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              transaction.type === "CREDIT"
-                                ? "bg-green-100"
-                                : "bg-red-100"
-                            }`}
-                          >
-                            {transaction.type === "CREDIT" ? (
-                              <ArrowUpRight className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <ArrowUpRight className="h-5 w-5 text-red-600 rotate-180" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {transaction.description}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(
-                                transaction.createdAt
-                              ).toLocaleDateString("en-US")}
-                            </p>
-                          </div>
-                        </div>
-                        <div
-                          className={`text-right ${
-                            transaction.type === "CREDIT"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          <p className="font-semibold">
-                            {transaction.type === "CREDIT" ? "+" : "-"}$
-                            {transaction.amount.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No transactions yet
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <WalletTab user={user} recentTransactions={recentTransactions} />
           </TabsContent>
 
           <TabsContent value="withdraw" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ArrowUpRight className="h-5 w-5" />
-                  Withdraw Earnings
-                </CardTitle>
-                <CardDescription>
-                  Withdraw your earnings to your preferred payment method
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Available Balance
-                    </h3>
-                    <div className="text-3xl font-bold text-green-600 mb-4">
-                      ${user.walletBalance.toFixed(2)}
-                    </div>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <p>• Minimum withdrawal: $10.00</p>
-                      <p>• Weekly withdrawal limit: $100.00</p>
-                      <p>• Processing time: 2-3 business days</p>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Request Withdrawal
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Amount
-                        </label>
-                        <input
-                          type="number"
-                          min="10"
-                          max={user.walletBalance}
-                          step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          placeholder="Enter amount"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Payment Method
-                        </label>
-                        <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                          <option>PayPal</option>
-                          <option>Bank Transfer</option>
-                          <option>Mobile Money</option>
-                        </select>
-                      </div>
-                      <Button
-                        className="w-full"
-                        disabled={user.walletBalance < 10}
-                      >
-                        {user.walletBalance < 10
-                          ? "Minimum $10 required"
-                          : "Request Withdrawal"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <WithdrawTab />
           </TabsContent>
         </Tabs>
       </main>
