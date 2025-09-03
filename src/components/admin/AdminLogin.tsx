@@ -1,26 +1,24 @@
 "use client";
 
-import { useState, useActionState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { useActionState, useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+} from "../ui/card";
+import { Label } from "../ui/label";
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 
-interface LoginFormProps {
+interface AdminLoginProps {
   loginAction: (prevState: any, formData: FormData) => Promise<any>;
   className?: string;
 }
 
-export default function LoginForm({ loginAction }: LoginFormProps) {
-  const router = useRouter();
+export default function AdminLogin({ loginAction }: AdminLoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, isPending] = useActionState(loginAction, {
     error: null,
@@ -99,25 +97,6 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="rememberMe"
-                    className="rounded border-white/20 bg-white/10 text-purple-600 focus:ring-purple-600 focus:ring-offset-white/10"
-                    disabled={isPending}
-                  />
-                  <span className="text-sm text-gray-300">Remember me</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => router.push("/forgot-password")}
-                  className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-3"
@@ -136,18 +115,6 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
                 )}
               </Button>
             </form>
-
-            <div className="text-center">
-              <span className="text-gray-400 text-sm">
-                Don't have an account?{" "}
-              </span>
-              <button
-                onClick={() => router.push("/register")}
-                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
-              >
-                Sign up
-              </button>
-            </div>
           </CardContent>
         </Card>
 

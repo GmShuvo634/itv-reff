@@ -1,8 +1,11 @@
-export default function AdminLoginPage() {
+import AdminLogin from "@/components/admin/AdminLogin";
+import { adminLoginAction, getAdminFromServer } from "@/lib/api/auth";
+import { redirect } from "next/navigation";
 
-  return (
-    <div>
-      <h1>Admin Login Page</h1>
-    </div>
-  )
+export default async function AdminLoginPage() {
+  const admin = await getAdminFromServer();
+
+  if (admin) redirect("/admin");
+
+  return <AdminLogin loginAction={adminLoginAction} />;
 }

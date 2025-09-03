@@ -28,14 +28,14 @@ export default function ScrollableLayout({
 }: ScrollableLayoutProps) {
   return (
     <div
-      className={cn("flex flex-col", className)}
+      className={cn("flex flex-col w-full", className)}
       style={{ height: maxHeight }}
     >
       {/* Fixed-height container that takes full specified height */}
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 w-full">
         {/* ScrollArea with fixed height that contains all scrollable content */}
-        <ScrollArea className={cn("h-full", !showScrollbar && "scrollbar-hide")}>
-          <div className={cn("", contentClassName)}>
+        <ScrollArea className={cn("h-full w-full", !showScrollbar && "scrollbar-hide")}>
+          <div className={cn("w-full min-w-0", contentClassName)}>
             {children}
           </div>
         </ScrollArea>
@@ -86,16 +86,16 @@ export function FullPageScrollableLayout({
   ...props
 }: FullPageScrollableLayoutProps) {
   return (
-    <div className={cn("h-screen flex flex-col", className)}>
+    <div className={cn("h-screen flex flex-col w-full overflow-hidden", className)}>
       {/* Fixed header */}
       {header && (
-        <header className="flex-shrink-0">
+        <header className="flex-shrink-0 w-full">
           {header}
         </header>
       )}
 
       {/* Scrollable content area */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 w-full">
         <ScrollableLayout {...props} maxHeight="100%">
           {children}
         </ScrollableLayout>
@@ -103,14 +103,14 @@ export function FullPageScrollableLayout({
 
       {/* Menubar */}
       {menubar && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 w-full">
           {menubar}
         </div>
       )}
 
       {/* Fixed footer */}
       {footer && (
-        <footer className="flex-shrink-0">
+        <footer className="flex-shrink-0 w-full">
           {footer}
         </footer>
       )}

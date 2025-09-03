@@ -121,8 +121,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    max-width: 46.875rem;
-    margin: 0 auto;
   }
 }
 
@@ -190,5 +188,11 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: rgba(0, 0, 0, 0.3);
+  }
+
+  /* Constrained width for regular users */
+  .constrained-width {
+    max-width: 46.875rem;
+    margin: 0 auto;
   }
 }
