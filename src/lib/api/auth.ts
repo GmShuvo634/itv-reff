@@ -1,8 +1,12 @@
-import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
-import { User } from '@prisma/client';
-import { SecureTokenManager, TokenPair, generateToken, verifyToken } from '@/lib/token-manager';
-import crypto from 'crypto';
+import bcrypt from "bcryptjs";
+import { db } from "@/lib/db";
+import { AdminUser, User } from "@prisma/client";
+import {
+  SecureTokenManager,
+  TokenPair,
+  generateToken,
+  verifyToken,
+} from "@/lib/token-manager";
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -27,48 +31,56 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+export async function verifyPassword(
+  password: string,
+  hashedPassword: string,
+): Promise<boolean> {
   return bcrypt.compare(password, hashedPassword);
 }
 
-export function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
+export function validatePasswordStrength(password: string): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (password.length < 8) {
-    errors.push('Password must be at least 8 characters long');
+    errors.push("Password must be at least 8 characters long");
   }
 
   if (!/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
+    errors.push("Password must contain at least one uppercase letter");
   }
 
   if (!/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
+    errors.push("Password must contain at least one lowercase letter");
   }
 
   if (!/\d/.test(password)) {
-    errors.push('Password must contain at least one number');
+    errors.push("Password must contain at least one number");
   }
 
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    errors.push('Password must contain at least one special character');
+    errors.push("Password must contain at least one special character");
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
 // Account lockout functions
-export async function checkAccountLockout(email: string): Promise<{ locked: boolean; lockoutUntil?: Date; attempts: number }> {
+export async function checkAccountLockout(
+  email: string,
+): Promise<{ locked: boolean; lockoutUntil?: Date; attempts: number }> {
   const user = await db.user.findUnique({
     where: { email },
     select: {
       failedLoginAttempts: true,
       lastFailedLogin: true,
-      lockedUntil: true
-    }
+      lockedUntil: true,
+    },
   });
 
   if (!user) {
@@ -82,20 +94,20 @@ export async function checkAccountLockout(email: string): Promise<{ locked: bool
     return {
       locked: true,
       lockoutUntil: user.lockedUntil,
-      attempts: user.failedLoginAttempts || 0
+      attempts: user.failedLoginAttempts || 0,
     };
   }
 
   return {
     locked: false,
-    attempts: user.failedLoginAttempts || 0
+    attempts: user.failedLoginAttempts || 0,
   };
 }
 
 export async function recordFailedLogin(email: string): Promise<void> {
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true, failedLoginAttempts: true }
+    select: { id: true, failedLoginAttempts: true },
   });
 
   if (!user) return;
@@ -105,7 +117,7 @@ export async function recordFailedLogin(email: string): Promise<void> {
 
   const updateData: any = {
     failedLoginAttempts: attempts,
-    lastFailedLogin: now
+    lastFailedLogin: now,
   };
 
   // Lock account if max attempts reached
@@ -115,7 +127,7 @@ export async function recordFailedLogin(email: string): Promise<void> {
 
   await db.user.update({
     where: { id: user.id },
-    data: updateData
+    data: updateData,
   });
 }
 
@@ -125,12 +137,15 @@ export async function resetFailedLogins(userId: string): Promise<void> {
     data: {
       failedLoginAttempts: 0,
       lastFailedLogin: null,
-      lockedUntil: null
-    }
+      lockedUntil: null,
+    },
   });
 }
 
-export async function authenticateUser(email: string, password: string): Promise<User | null> {
+export async function authenticateUser(
+  email: string,
+  password: string,
+): Promise<User | null> {
   try {
     const user = await db.user.findUnique({
       where: { email },
@@ -147,7 +162,32 @@ export async function authenticateUser(email: string, password: string): Promise
 
     return user;
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error("Authentication error:", error);
+    return null;
+  }
+}
+
+export async function authenticateAdmin(
+  email: string,
+  password: string,
+): Promise<AdminUser | null> {
+  try {
+    const admin = await db.adminUser.findUnique({
+      where: { email },
+    });
+
+    if (!admin || !admin.password) {
+      return null;
+    }
+
+    const isValidPassword = await verifyPassword(password, admin.password);
+    if (!isValidPassword) {
+      return null;
+    }
+
+    return admin;
+  } catch (error) {
+    console.error("Authentication error:", error);
     return null;
   }
 }
@@ -178,11 +218,13 @@ export async function createUser(userData: {
 
     // Get the Intern position for new users
     const internPosition = await db.positionLevel.findUnique({
-      where: { name: 'Intern' }
+      where: { name: "Intern" },
     });
 
     if (!internPosition) {
-      throw new Error('Intern position not found. Please ensure position levels are seeded.');
+      throw new Error(
+        "Intern position not found. Please ensure position levels are seeded.",
+      );
     }
 
     // Calculate position validity dates
@@ -198,8 +240,8 @@ export async function createUser(userData: {
         password: hashedPassword,
         referralCode,
         referredBy,
-        ipAddress: '', // Will be set from request
-        deviceId: '', // Will be set from request
+        ipAddress: "", // Will be set from request
+        deviceId: "", // Will be set from request
         // Assign Intern position to new users
         currentPositionId: internPosition.id,
         positionStartDate: startDate,
@@ -211,22 +253,40 @@ export async function createUser(userData: {
 
     return user;
   } catch (error) {
-    console.error('User creation error:', error);
+    console.error("User creation error:", error);
     // Re-throw the error so it can be properly handled by the calling function
     throw error;
   }
 }
 
 function generateReferralCode(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
   for (let i = 0; i < 8; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
 }
 
-export type AuthUser = Pick<User, 'id' | 'email' | 'name' | 'phone' | 'password' | 'emailVerified' | 'phoneVerified' | 'referralCode' | 'referredBy' | 'status' | 'ipAddress' | 'deviceId' | 'walletBalance' | 'totalEarnings' | 'createdAt' | 'updatedAt'>;
+export type AuthUser = Pick<
+  User,
+  | "id"
+  | "email"
+  | "name"
+  | "phone"
+  | "password"
+  | "emailVerified"
+  | "phoneVerified"
+  | "referralCode"
+  | "referredBy"
+  | "status"
+  | "ipAddress"
+  | "deviceId"
+  | "walletBalance"
+  | "totalEarnings"
+  | "createdAt"
+  | "updatedAt"
+>;
 export async function getUserById(id: string): Promise<AuthUser | null> {
   try {
     return await db.user.findUnique({
@@ -251,7 +311,26 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
       },
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error("Get user error:", error);
+    return null;
+  }
+}
+
+export type AuthAdmin = Pick<AdminUser, "id" | "name" | "email" | "role">;
+
+export async function getAdminById(id: string): Promise<AuthAdmin | null> {
+  try {
+    return await db.adminUser.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+  } catch (error) {
+    console.error("Get admin error:", error);
     return null;
   }
 }
@@ -268,7 +347,7 @@ export async function getUserFromServer() {
     const res = await fetch(`${process.env.BACKEND_URL}/api/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        Cookie: `access_token=${token}`
+        Cookie: `access_token=${token}`,
       },
       cache: "no-store",
     });
@@ -278,7 +357,49 @@ export async function getUserFromServer() {
     const data = await res.json();
     return data.success ? data.user : null;
   } catch (error) {
-    console.error('getUserFromServer error:', error);
+    console.error("getUserFromServer error:", error);
+    return null;
+  }
+}
+
+export async function getAdminFromServer() {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const token = cookieStore.get("access_token")?.value;
+
+  if (!token) {
+    console.log("getAdminFromServer: No access token found");
+    return null;
+  }
+
+  try {
+    // Direct database lookup instead of API call to avoid fetch issues
+    const payload = SecureTokenManager.verifyAccessToken(token);
+    if (!payload) {
+      console.log("getAdminFromServer: Invalid token");
+      return null;
+    }
+
+    // Get admin directly from database
+    const admin = await getAdminById(payload.userId);
+
+    if (!admin) {
+      console.log(
+        "getAdminFromServer: Admin not found for userId:",
+        payload.userId,
+      );
+      return null;
+    }
+
+    console.log("getAdminFromServer: Admin retrieved successfully", admin);
+    return {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+    };
+  } catch (error) {
+    console.error("getAdminFromServer error:", error);
     return null;
   }
 }
@@ -301,7 +422,11 @@ function validateRedirectPath(path: string): string {
   }
 
   // Reject absolute URLs with protocols
-  if (path.includes("://") || path.startsWith("http") || path.startsWith("ftp")) {
+  if (
+    path.includes("://") ||
+    path.startsWith("http") ||
+    path.startsWith("ftp")
+  ) {
     return defaultPath;
   }
 
@@ -314,7 +439,10 @@ function validateRedirectPath(path: string): string {
 }
 
 // Helper function to extract and set authentication cookies
-async function setAuthCookiesFromResponse(response: Response, rememberMe: boolean = false) {
+async function setAuthCookiesFromResponse(
+  response: Response,
+  rememberMe: boolean = false,
+) {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
@@ -346,13 +474,13 @@ async function setAuthCookiesFromResponse(response: Response, rememberMe: boolea
     // Set secure cookie options
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
-      path: '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
     };
 
     // Set access token with appropriate expiration
-    cookieStore.set('access_token', accessToken, {
+    cookieStore.set("access_token", accessToken, {
       ...cookieOptions,
       maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60, // 7 days or 15 minutes
     });
@@ -373,7 +501,7 @@ export async function loginAction(prevState: any, formData: FormData) {
   // Validate environment configuration
   if (!process.env.BACKEND_URL) {
     return {
-      error: "Server configuration error. Please try again later."
+      error: "Server configuration error. Please try again later.",
     };
   }
 
@@ -400,11 +528,11 @@ export async function loginAction(prevState: any, formData: FormData) {
         // Fallback: manually set cookie if extraction failed
         const cookieStore = await cookies();
         if (data.tokens?.accessToken) {
-          cookieStore.set('access_token', data.tokens.accessToken, {
+          cookieStore.set("access_token", data.tokens.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/",
             maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60,
           });
         }
@@ -413,7 +541,9 @@ export async function loginAction(prevState: any, formData: FormData) {
       // Get and validate redirect path
       const cookieStore = await cookies();
       const rawRedirectPath = cookieStore.get("redirect_after_login")?.value;
-      const redirectPath = validateRedirectPath(rawRedirectPath || "/dashboard");
+      const redirectPath = validateRedirectPath(
+        rawRedirectPath || "/dashboard",
+      );
 
       // Clear redirect cookie
       cookieStore.delete("redirect_after_login");
@@ -422,12 +552,15 @@ export async function loginAction(prevState: any, formData: FormData) {
     } else {
       // Return error state for client-side handling
       return {
-        error: data.error || "Login failed"
+        error: data.error || "Login failed",
       };
     }
   } catch (error: any) {
     // Check if this is a Next.js redirect (expected behavior)
-    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) {
+    if (
+      error?.message === "NEXT_REDIRECT" ||
+      error?.digest?.startsWith("NEXT_REDIRECT")
+    ) {
       // This is expected behavior for redirects, re-throw to allow redirect to work
       throw error;
     }
@@ -435,7 +568,86 @@ export async function loginAction(prevState: any, formData: FormData) {
     // Log actual errors only
     console.error("Login action error:", error);
     return {
-      error: "Network error. Please try again."
+      error: "Network error. Please try again.",
+    };
+  }
+}
+
+export async function adminLoginAction(prevState: any, formData: FormData) {
+  "use server";
+
+  const { cookies } = await import("next/headers");
+  const { redirect } = await import("next/navigation");
+
+  if (!process.env.BACKEND_URL) {
+    return {
+      error: "Server Configuration error. Please try again later.",
+    };
+  }
+
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const rememberMe = formData.get("rememberMe") === "on";
+  try {
+    const response = await fetch(
+      `${process.env.BACKEND_URL}/api/auth/admin-login`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, rememberMe }),
+      },
+    );
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      const cookiesSet = await setAuthCookiesFromResponse(response, rememberMe);
+
+      if (!cookiesSet) {
+        const cookieStore = await cookies();
+
+        if (data.tokens?.accessToken) {
+          cookieStore.set("access_token", data.tokens.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/",
+            maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60,
+          });
+        }
+      }
+
+      const cookieStore = await cookies();
+      const rawRedirectPath = cookieStore.get(
+        "admin_redirect_after_login",
+      )?.value;
+      const redirectPath = validateRedirectPath(
+        rawRedirectPath || "/admin/analytics",
+      );
+
+      cookieStore.delete("admin_redirect_after_login");
+
+      redirect(redirectPath);
+    } else {
+      return {
+        error: data.error || "Login failed",
+      };
+    }
+  } catch (error: any) {
+    if (
+      error?.message === "NEXT_REDIRECT" ||
+      error?.digest?.startsWith("NEXT_REDIRECT")
+    ) {
+      // This is expected behavior for redirects, re-throw to allow redirect to work
+      throw error;
+    }
+
+    // Log actual errors only
+    console.error("Login action error:", error);
+    return {
+      error: "Network error. Please try again.",
     };
   }
 }
@@ -449,7 +661,7 @@ export async function registerAction(prevState: any, formData: FormData) {
   // Validate environment configuration
   if (!process.env.BACKEND_URL) {
     return {
-      error: "Server configuration error. Please try again later."
+      error: "Server configuration error. Please try again later.",
     };
   }
 
@@ -463,19 +675,19 @@ export async function registerAction(prevState: any, formData: FormData) {
   // Basic validation
   if (!name || !email || !password) {
     return {
-      error: "Please fill in all required fields"
+      error: "Please fill in all required fields",
     };
   }
 
   if (password !== confirmPassword) {
     return {
-      error: "Passwords do not match"
+      error: "Passwords do not match",
     };
   }
 
   if (password.length < 6) {
     return {
-      error: "Password must be at least 6 characters long"
+      error: "Password must be at least 6 characters long",
     };
   }
 
@@ -483,25 +695,28 @@ export async function registerAction(prevState: any, formData: FormData) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return {
-      error: "Please enter a valid email address"
+      error: "Please enter a valid email address",
     };
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}/api/auth/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${process.env.BACKEND_URL}/api/auth/register`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phone || undefined,
+          password,
+          confirmPassword,
+          referralCode: referralCode || undefined,
+        }),
       },
-      body: JSON.stringify({
-        name,
-        email,
-        phone: phone || undefined,
-        password,
-        confirmPassword,
-        referralCode: referralCode || undefined
-      }),
-    });
+    );
 
     const data = await response.json();
 
@@ -514,11 +729,11 @@ export async function registerAction(prevState: any, formData: FormData) {
         const { cookies } = await import("next/headers");
         const cookieStore = await cookies();
         if (data.tokens?.accessToken) {
-          cookieStore.set('access_token', data.tokens.accessToken, {
+          cookieStore.set("access_token", data.tokens.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/",
             maxAge: 15 * 60, // 15 minutes for new registrations
           });
         }
@@ -528,18 +743,21 @@ export async function registerAction(prevState: any, formData: FormData) {
       redirect("/dashboard");
     } else {
       return {
-        error: data.error || "Registration failed"
+        error: data.error || "Registration failed",
       };
     }
   } catch (error: any) {
     // Check if this is a Next.js redirect (expected behavior)
-    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) {
+    if (
+      error?.message === "NEXT_REDIRECT" ||
+      error?.digest?.startsWith("NEXT_REDIRECT")
+    ) {
       throw error;
     }
 
     console.error("Registration action error:", error);
     return {
-      error: "Network error. Please try again."
+      error: "Network error. Please try again.",
     };
   }
 }

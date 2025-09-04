@@ -53,6 +53,8 @@ model User {
   referrerHierarchy ReferralHierarchy[] @relation("ReferrerHierarchy")
   managementBonuses TaskManagementBonus[] @relation("UserManagementBonuses")
   subordinateBonuses TaskManagementBonus[] @relation("SubordinateBonuses")
+  activityLogs    ActivityLog[]
+  systemLogs      SystemLog[]
 
   @@map("users")
 }
@@ -280,6 +282,13 @@ model AdminUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  auditLogs     AuditLog[]
+  fileUploads   FileUpload[]
+  activityLogs  ActivityLog[]
+  systemLogs    SystemLog[]
+  apiKeys       ApiKey[]
+
   @@map("admin_users")
 }
 
@@ -330,4 +339,176 @@ model TaskManagementBonus {
   createdAt       DateTime @default(now())
 
   @@map("task_management_bonuses")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  adminId       String?
+  admin         AdminUser? @relation(fields: [adminId], references: [id])
+  action        AuditAction
+  targetType    String   // "user", "video", "transaction", etc.
+  targetId      String?
+  description   String
+  details       String?  // JSON string for additional data
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_STATUS_CHANGED
+  USER_BALANCE_UPDATED
+  VIDEO_CREATED
+  VIDEO_UPDATED
+  VIDEO_DELETED
+  VIDEO_STATUS_CHANGED
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  SETTINGS_UPDATED
+  ADMIN_LOGIN
+  ADMIN_LOGOUT
+  BULK_UPDATE
+  DATA_EXPORT
+}
+
+model SystemNotification {
+  id          String   @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  severity    NotificationSeverity @default(INFO)
+  targetType  String?  // "all", "admin", "user", or specific user ID
+  targetId    String?
+  isRead      Boolean  @default(false)
+  actionUrl   String?
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  @@map("system_notifications")
+}
+
+enum NotificationType {
+  SYSTEM_ALERT
+  USER_ACTION
+  WITHDRAWAL_REQUEST
+  VIDEO_UPLOAD
+  USER_REGISTRATION
+  MAINTENANCE
+  SECURITY_ALERT
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+model FileUpload {
+  id           String   @id @default(cuid())
+  originalName String
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  uploadType   FileUploadType
+  uploadedBy   String?
+  uploader     AdminUser? @relation(fields: [uploadedBy], references: [id])
+  isProcessed  Boolean  @default(false)
+  processingStatus String? // "pending", "processing", "completed", "failed"
+  metadata     String?  // JSON string for file metadata
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("file_uploads")
+}
+
+enum FileUploadType {
+  VIDEO
+  THUMBNAIL
+  AVATAR
+  DOCUMENT
+  OTHER
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  adminId     String?
+  admin       AdminUser? @relation(fields: [adminId], references: [id])
+  activity    String   // "login", "video_watch", "withdrawal_request", etc.
+  description String
+  ipAddress   String?
+  userAgent   String?
+  sessionId   String?
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     LogLevel
+  component String   // "api", "auth", "payment", "video", etc.
+  message   String
+  error     String?  // Error stack trace if applicable
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  adminId   String?
+  admin     AdminUser? @relation(fields: [adminId], references: [id])
+  metadata  String?  // JSON string for additional data
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([component])
+  @@index([createdAt])
+  @@map("system_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+model DashboardCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  data      String   // JSON string of cached data
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cacheKey])
+  @@index([expiresAt])
+  @@map("dashboard_cache")
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique
+  permissions String[] // Array of permissions like "read:users", "write:videos"
+  isActive    Boolean  @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdBy   String?
+  creator     AdminUser? @relation(fields: [createdBy], references: [id])
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("api_keys")
 }

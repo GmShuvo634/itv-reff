@@ -1,12 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useActionState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
+import { useState, useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 
 interface LoginFormProps {
   loginAction: (prevState: any, formData: FormData) => Promise<any>;
@@ -16,7 +22,13 @@ interface LoginFormProps {
 export default function LoginForm({ loginAction }: LoginFormProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [state, formAction, isPending] = useActionState(loginAction, { error: null });
+  const [state, formAction, isPending] = useActionState(loginAction, {
+    error: null,
+  });
+
+  const getFullYear = () => {
+    return new Date().getFullYear();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -38,7 +50,9 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
 
             <form action={formAction} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                <Label htmlFor="email" className="text-gray-300">
+                  Email
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -54,7 +68,9 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Password</Label>
+                <Label htmlFor="password" className="text-gray-300">
+                  Password
+                </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -74,7 +90,11 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isPending}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -91,7 +111,7 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
                 </label>
                 <button
                   type="button"
-                  onClick={() => router.push('/forgot-password')}
+                  onClick={() => router.push("/forgot-password")}
                   className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
                 >
                   Forgot password?
@@ -118,9 +138,11 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
             </form>
 
             <div className="text-center">
-              <span className="text-gray-400 text-sm">Don't have an account? </span>
+              <span className="text-gray-400 text-sm">
+                Don't have an account?{" "}
+              </span>
               <button
-                onClick={() => router.push('/register')}
+                onClick={() => router.push("/register")}
                 className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
               >
                 Sign up
@@ -130,7 +152,7 @@ export default function LoginForm({ loginAction }: LoginFormProps) {
         </Card>
 
         <div className="text-center mt-8 text-gray-400 text-sm">
-          <p>© 2024 VideoTask Rewards. All rights reserved.</p>
+          <p>© {getFullYear()} VideoTask Rewards. All rights reserved.</p>
         </div>
       </div>
     </div>

@@ -10,8 +10,8 @@ async function createAdminUser() {
     // Admin user details
     const adminData = {
       name: 'Admin User',
-      email: 'admin@example.com',
-      password: 'admin123456', // Change this to a secure password
+      email: 'admin@admin.com',
+      password: '12345678',
       role: 'SUPER_ADMIN' as const
     };
 
