@@ -9,6 +9,7 @@ import {
   UserAnalytics,
 } from "@/types/admin";
 import { Prisma } from "@prisma/client";
+import { auditService, AuditAction } from "./audit-service";
 
 export class UserManagementService {
   /**
@@ -80,7 +81,15 @@ export class UserManagementService {
   async updateUser(
     userId: string,
     updateData: UserUpdateForm,
+    adminId?: string,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<UserManagement> {
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, status: true, walletBalance: true },
+    });
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -101,6 +110,20 @@ export class UserManagementService {
       },
     });
 
+    // Log audit event
+    if (adminId) {
+      const changes = this.getChangedFields(existingUser, updateData);
+      await auditService.logUserAction(
+        adminId,
+        AuditAction.USER_UPDATED,
+        userId,
+        `Updated user ${existingUser?.name || userId}: ${changes.join(", ")}`,
+        { changes: updateData, previousValues: existingUser },
+        ipAddress,
+        userAgent,
+      );
+    }
+
     return this.mapUserToUserManagement(updatedUser);
   }
 
@@ -111,7 +134,15 @@ export class UserManagementService {
     userId: string,
     status: UserStatus,
     adminNotes?: string,
+    adminId?: string,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<UserManagement> {
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, status: true },
+    });
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -145,6 +176,19 @@ export class UserManagementService {
       },
     });
 
+    // Log audit event
+    if (adminId) {
+      await auditService.logUserAction(
+        adminId,
+        AuditAction.USER_STATUS_CHANGED,
+        userId,
+        `Changed user ${existingUser?.name || userId} status from ${existingUser?.status} to ${status}${adminNotes ? `. Notes: ${adminNotes}` : ""}`,
+        { previousStatus: existingUser?.status, newStatus: status, adminNotes },
+        ipAddress,
+        userAgent,
+      );
+    }
+
     return this.mapUserToUserManagement(updatedUser);
   }
 
@@ -155,10 +199,13 @@ export class UserManagementService {
     userId: string,
     newBalance: number,
     reason: string,
+    adminId?: string,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<UserManagement> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { walletBalance: true },
+      select: { name: true, email: true, walletBalance: true },
     });
 
     if (!user) {
@@ -204,6 +251,24 @@ export class UserManagementService {
 
       return updated;
     });
+
+    // Log audit event
+    if (adminId) {
+      await auditService.logUserAction(
+        adminId,
+        AuditAction.USER_BALANCE_UPDATED,
+        userId,
+        `Updated balance for ${user.name || userId} from ${user.walletBalance} to ${newBalance}. Reason: ${reason}`,
+        {
+          previousBalance: user.walletBalance,
+          newBalance,
+          difference: balanceDifference,
+          reason,
+        },
+        ipAddress,
+        userAgent,
+      );
+    }
 
     return this.mapUserToUserManagement(updatedUser);
   }
@@ -474,6 +539,23 @@ export class UserManagementService {
     });
 
     return result._sum.amount || 0;
+  }
+
+  /**
+   * Helper method to track changed fields for audit logging
+   */
+  private getChangedFields(existingData: any, updateData: any): string[] {
+    const changes: string[] = [];
+
+    if (!existingData) return Object.keys(updateData);
+
+    for (const [key, value] of Object.entries(updateData)) {
+      if (existingData[key] !== value) {
+        changes.push(`${key}: ${existingData[key]} → ${value}`);
+      }
+    }
+
+    return changes;
   }
 }
 
