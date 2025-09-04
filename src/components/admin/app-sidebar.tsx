@@ -22,10 +22,12 @@ import {
 
 interface SidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
+    id: string;
     name: string;
     email: string;
+    role: string;
     avatar?: string;
-  };
+  } | null;
 }
 
 // This is sample data.
@@ -78,12 +80,14 @@ export function AppSidebar({ user, ...props }: SidebarProps) {
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            ...user,
-            avatar: user?.avatar || "/avatars/shadcn.jpg",
-          }}
-        />
+        {user && (
+          <NavUser
+            user={{
+              ...user,
+              avatar: user.avatar || "/avatars/shadcn.jpg",
+            }}
+          />
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

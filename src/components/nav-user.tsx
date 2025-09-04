@@ -30,12 +30,39 @@ export function NavUser({
   user,
 }: {
   user: {
+    id?: string;
     name: string;
     email: string;
+    role?: string;
     avatar: string;
-  };
+  } | null;
 }) {
   const { isMobile } = useSidebar();
+
+  if (!user) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" disabled>
+            <Avatar className="h-8 w-8 rounded-lg">
+              <AvatarFallback className="rounded-lg">?</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">Loading...</span>
+              <span className="truncate text-xs">Please wait</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
+  const initials = user.name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <SidebarMenu>
@@ -48,7 +75,7 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -67,11 +94,16 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="truncate text-xs">{user.email}</span>
+                  {user.role && (
+                    <span className="truncate text-xs text-muted-foreground capitalize">
+                      {user.role.replace('_', ' ').toLowerCase()}
+                    </span>
+                  )}
                 </div>
               </div>
             </DropdownMenuLabel>

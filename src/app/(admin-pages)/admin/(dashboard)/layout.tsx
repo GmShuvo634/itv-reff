@@ -7,19 +7,26 @@ import { AppSidebar } from "@/components/admin/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import AdminBreadcrum from "@/components/admin/admin-breadcrum";
 import { getAdminFromServer } from "@/lib/api/auth";
+import { redirect } from "next/navigation";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAdminFromServer();
+  const admin = await getAdminFromServer();
 
-  console.log(user);
+  console.log("AdminLayout: Admin data from server:", admin);
+
+  // If no admin found, redirect to login (this is now handled by middleware)
+  if (!admin) {
+    console.log("AdminLayout: No admin found, redirecting to login");
+    redirect("/admin/login");
+  }
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user} />
+      <AppSidebar user={admin} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">

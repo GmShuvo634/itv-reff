@@ -34,7 +34,7 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(
   password: string,
-  hashedPassword: string
+  hashedPassword: string,
 ): Promise<boolean> {
   return bcrypt.compare(password, hashedPassword);
 }
@@ -73,7 +73,7 @@ export function validatePasswordStrength(password: string): {
 
 // Account lockout functions
 export async function checkAccountLockout(
-  email: string
+  email: string,
 ): Promise<{ locked: boolean; lockoutUntil?: Date; attempts: number }> {
   const user = await db.user.findUnique({
     where: { email },
@@ -145,7 +145,7 @@ export async function resetFailedLogins(userId: string): Promise<void> {
 
 export async function authenticateUser(
   email: string,
-  password: string
+  password: string,
 ): Promise<User | null> {
   try {
     const user = await db.user.findUnique({
@@ -170,7 +170,7 @@ export async function authenticateUser(
 
 export async function authenticateAdmin(
   email: string,
-  password: string
+  password: string,
 ): Promise<AdminUser | null> {
   try {
     const admin = await db.adminUser.findUnique({
@@ -224,7 +224,7 @@ export async function createUser(userData: {
 
     if (!internPosition) {
       throw new Error(
-        "Intern position not found. Please ensure position levels are seeded."
+        "Intern position not found. Please ensure position levels are seeded.",
       );
     }
 
@@ -317,7 +317,7 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
   }
 }
 
-export type AuthAdmin = Pick<AdminUser, "id" | "name" | "email">;
+export type AuthAdmin = Pick<AdminUser, "id" | "name" | "email" | "role">;
 
 export async function getAdminById(id: string): Promise<AuthAdmin | null> {
   try {
@@ -327,6 +327,7 @@ export async function getAdminById(id: string): Promise<AuthAdmin | null> {
         id: true,
         name: true,
         email: true,
+        role: true,
       },
     });
   } catch (error) {
@@ -367,24 +368,39 @@ export async function getAdminFromServer() {
   const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value;
 
-  if (!token) return null;
+  if (!token) {
+    console.log("getAdminFromServer: No access token found");
+    return null;
+  }
 
   try {
-    const res = await fetch(`${process.env.BACKEND_URL}/api/auth/getAdmin`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Cookie: `access_token=${token}`,
-      },
-      cache: "no-store",
-    });
+    // Direct database lookup instead of API call to avoid fetch issues
+    const payload = SecureTokenManager.verifyAccessToken(token);
+    if (!payload) {
+      console.log("getAdminFromServer: Invalid token");
+      return null;
+    }
 
-    if (!res.ok) return null;
+    // Get admin directly from database
+    const admin = await getAdminById(payload.userId);
 
-    const data = await res.json();
-    return data.success ? data.user : null;
+    if (!admin) {
+      console.log(
+        "getAdminFromServer: Admin not found for userId:",
+        payload.userId,
+      );
+      return null;
+    }
+
+    console.log("getAdminFromServer: Admin retrieved successfully", admin);
+    return {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+    };
   } catch (error) {
-    console.error("GetAdminFromServer error:", error);
-
+    console.error("getAdminFromServer error:", error);
     return null;
   }
 }
@@ -426,7 +442,7 @@ function validateRedirectPath(path: string): string {
 // Helper function to extract and set authentication cookies
 async function setAuthCookiesFromResponse(
   response: Response,
-  rememberMe: boolean = false
+  rememberMe: boolean = false,
 ) {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
@@ -527,7 +543,7 @@ export async function loginAction(prevState: any, formData: FormData) {
       const cookieStore = await cookies();
       const rawRedirectPath = cookieStore.get("redirect_after_login")?.value;
       const redirectPath = validateRedirectPath(
-        rawRedirectPath || "/dashboard"
+        rawRedirectPath || "/dashboard",
       );
 
       // Clear redirect cookie
@@ -582,7 +598,7 @@ export async function adminLoginAction(prevState: any, formData: FormData) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, rememberMe }),
-      }
+      },
     );
 
     const data = await response.json();
@@ -593,22 +609,26 @@ export async function adminLoginAction(prevState: any, formData: FormData) {
       if (!cookiesSet) {
         const cookieStore = await cookies();
 
-        if (data.token?.accessToken) {
+        if (data.tokens?.accessToken) {
           cookieStore.set("access_token", data.tokens.accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
-            path: "/admin",
+            path: "/",
             maxAge: rememberMe ? 7 * 24 * 60 * 60 : 15 * 60,
           });
         }
       }
 
       const cookieStore = await cookies();
-      const rawRedirectPath = cookieStore.get("redirect_after_login")?.value;
-      const redirectPath = validateRedirectPath(rawRedirectPath || "/admin");
+      const rawRedirectPath = cookieStore.get(
+        "admin_redirect_after_login",
+      )?.value;
+      const redirectPath = validateRedirectPath(
+        rawRedirectPath || "/admin/analytics",
+      );
 
-      cookieStore.delete("redirect_after_login");
+      cookieStore.delete("admin_redirect_after_login");
 
       redirect(redirectPath);
     } else {
@@ -696,7 +716,7 @@ export async function registerAction(prevState: any, formData: FormData) {
           confirmPassword,
           referralCode: referralCode || undefined,
         }),
-      }
+      },
     );
 
     const data = await response.json();

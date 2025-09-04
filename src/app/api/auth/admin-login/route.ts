@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     },
     {
       status: 500,
-    }
+    },
   );
 
   try {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 429,
-        }
+        },
       );
       return addAPISecurityHeaders(response);
     }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             "Account is temporarily locked due to too many failed attempts",
           lockoutUntil: lockoutStatus.lockoutUntil,
         },
-        { status: 423 }
+        { status: 423 },
       );
       return addAPISecurityHeaders(response);
     }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const admin = await authenticateAdmin(
       validatedData.email,
-      validatedData.password
+      validatedData.password,
     );
 
     if (!admin) {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 401,
-        }
+        },
       );
       return addAPISecurityHeaders(response);
     }
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
         id: admin.id,
         email: admin.email,
         name: admin.name,
+        role: admin.role,
       },
       tokens: {
         accessToken: tokens.accessToken,
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict" as const,
-      path: "/admin/analytics",
+      path: "/",
     };
 
     response.cookies.set("access_token", tokens.accessToken, {
@@ -127,13 +128,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
