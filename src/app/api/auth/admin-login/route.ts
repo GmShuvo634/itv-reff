@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict" as const,
-      path: "/admin",
+      path: "/admin/analytics",
     };
 
     response.cookies.set("access_token", tokens.accessToken, {

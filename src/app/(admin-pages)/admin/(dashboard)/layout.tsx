@@ -1,21 +1,38 @@
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/admin/app-sidebar";
+import { Separator } from "@/components/ui/separator";
+import AdminBreadcrum from "@/components/admin/admin-breadcrum";
+import { getAdminFromServer } from "@/lib/api/auth";
 
-import { AdminSidebar } from "@/components/admin-sidebar";
-import { AdminHeader } from "@/components/admin-header";
-
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getAdminFromServer();
+
+  console.log(user);
+
   return (
-    <div className="flex min-h-screen">
-      <div className="hidden md:block">
-        <AdminSidebar />
-      </div>
-      <div className="flex flex-col flex-1">
-        <AdminHeader />
-        <main className="flex-1 p-4 md:p-8">{children}</main>
-      </div>
-    </div>
+    <SidebarProvider>
+      <AppSidebar user={user} />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <AdminBreadcrum />
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
