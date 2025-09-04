@@ -1,12 +1,10 @@
 import { addAPISecurityHeaders } from "@/lib/security-headers";
-import { adminAuthMiddleware } from "@/lib/api/api-auth";
 import { getAdminById } from "@/lib/api/auth";
 import { SecureTokenManager } from "@/lib/token-manager";
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  console.log("🔍 GetAdmin API called");
 
   try {
     // Debug: Check token presence
@@ -15,13 +13,11 @@ export async function GET(request: NextRequest) {
       token = request.cookies.get("access_token")?.value;
     }
 
-    console.log("📝 Token exists:", !!token);
     if (token) {
       console.log("📝 Token (first 20 chars):", token.substring(0, 20) + "...");
     }
 
     if (!token) {
-      console.log("❌ No token found in request");
       const response = NextResponse.json(
         {
           success: false,
@@ -34,10 +30,8 @@ export async function GET(request: NextRequest) {
 
     // Debug: Verify token manually
     const payload = SecureTokenManager.verifyAccessToken(token);
-    console.log("🔓 Token payload:", payload);
 
     if (!payload) {
-      console.log("❌ Token verification failed");
       const response = NextResponse.json(
         {
           success: false,
@@ -50,20 +44,16 @@ export async function GET(request: NextRequest) {
 
     // Debug: Check admin in database
     const admin = await getAdminById(payload.userId);
-    console.log("👤 Admin from database:", admin);
 
     if (!admin) {
-      console.log("❌ Admin not found in database for userId:", payload.userId);
 
       // Debug: Check if user exists in AdminUser table
       const adminCount = await db.adminUser.count();
-      console.log("📊 Total admin users in database:", adminCount);
 
       const userExists = await db.adminUser.findUnique({
         where: { id: payload.userId },
         select: { id: true, email: true },
       });
-      console.log("🔍 User exists check:", userExists);
 
       const response = NextResponse.json(
         {
@@ -80,7 +70,6 @@ export async function GET(request: NextRequest) {
       return addAPISecurityHeaders(response);
     }
 
-    console.log("✅ Admin authentication successful");
 
     const response = NextResponse.json({
       success: true,

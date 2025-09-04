@@ -27,7 +27,7 @@ export class AdminMiddleware {
 
   private static getJwtSecret(): string {
     if (!this.jwtSecret) {
-      this.jwtSecret = process.env.JWT_SECRET;
+      this.jwtSecret = process.env.JWT_SECRET ?? null;
       if (!this.jwtSecret) {
         throw new Error("JWT_SECRET environment variable is required");
       }
@@ -57,7 +57,7 @@ export class AdminMiddleware {
         return null;
       }
 
-      return payload as AdminTokenPayload;
+      return payload as unknown as AdminTokenPayload;
     } catch (error) {
       console.error("Token verification failed:", error);
       return null;

@@ -16,11 +16,8 @@ export default async function AdminLayout({
 }) {
   const admin = await getAdminFromServer();
 
-  console.log("AdminLayout: Admin data from server:", admin);
-
   // If no admin found, redirect to login (this is now handled by middleware)
   if (!admin) {
-    console.log("AdminLayout: No admin found, redirecting to login");
     redirect("/admin/login");
   }
 

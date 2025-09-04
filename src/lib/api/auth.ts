@@ -7,7 +7,6 @@ import {
   generateToken,
   verifyToken,
 } from "@/lib/token-manager";
-import crypto from "crypto";
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
