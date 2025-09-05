@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Z.ai Team" }],
   openGraph: {
-    title: "Z.ai Code Scaffold",
+    title: "Code Scaffold",
     description: "AI-powered development with modern React stack",
     url: "https://chat.z.ai",
     siteName: "Z.ai",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
+    title: "Code Scaffold",
     description: "AI-powered development with modern React stack",
   },
 };
